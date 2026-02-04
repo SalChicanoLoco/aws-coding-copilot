@@ -5,6 +5,29 @@
 - Docker Desktop running (required for Python 3.12 builds)
 - SAM CLI installed
 
+## ⚠️ IMPORTANT: Region Configuration
+
+This project is configured for **us-east-2**. Your AWS CLI should match this region to avoid deployment failures.
+
+### Check Your Region
+```bash
+aws configure get region
+```
+
+If this doesn't return `us-east-2`, either:
+
+**Option 1**: Update your AWS CLI default region
+```bash
+aws configure set region us-east-2
+```
+
+**Option 2**: Use the automated deployment script (recommended)
+```bash
+./deploy-safe.sh
+```
+
+The automated script will detect region mismatches and fix them automatically.
+
 ## First-Time Deployment
 
 ### Step 1: Navigate to infrastructure directory

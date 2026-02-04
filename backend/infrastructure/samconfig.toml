@@ -1,7 +1,7 @@
 version = 0.1
 
 [default.global.parameters]
-region = "us-east-1"
+region = "us-east-2"
 
 [default.build.parameters]
 use_container = true
@@ -9,7 +9,7 @@ use_container = true
 [default.deploy.parameters]
 stack_name = "prod-coding-copilot"
 s3_prefix = "prod-coding-copilot"
-region = "us-east-1"
+region = "us-east-2"
 confirm_changeset = false
 capabilities = "CAPABILITY_IAM"
 disable_rollback = true
