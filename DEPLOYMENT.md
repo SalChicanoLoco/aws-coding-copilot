@@ -2,6 +2,71 @@
 
 This guide provides step-by-step instructions for deploying the AWS Coding Copilot application.
 
+## Deployment Scripts Overview
+
+This repository includes several deployment scripts. Here's which one to use:
+
+### 🎯 **Recommended: `deploy-safe.sh`**
+**Use this for**: Production deployments, first-time deployments, or when you want maximum safety
+
+**Features**:
+- ✅ Validates all prerequisites (AWS CLI, SAM CLI, Docker)
+- ✅ Detects and fixes region mismatches
+- ✅ Checks for orphaned S3 buckets from previous failed deployments
+- ✅ Tests Anthropic API key validity before deployment
+- ✅ Checks if your Anthropic account has sufficient credits
+- ✅ Automatically configures frontend with API endpoint
+- ✅ Interactive prompts for safety
+
+**Usage**:
+```bash
+./deploy-safe.sh
+```
+
+### ⚡ **Fast: `deploy.sh`**
+**Use this for**: Quick deployments when you know your environment is set up correctly
+
+**Features**:
+- ✅ Validates prerequisites
+- ✅ Tests API key validity
+- ✅ Faster execution (fewer checks)
+- ⚠️ Less region mismatch detection
+- ⚠️ No orphaned resource cleanup
+
+**Usage**:
+```bash
+./deploy.sh
+```
+
+### 🚀 **Specialized: `quick-deploy.sh`**
+**Use this for**: Rapid iterations during development (after initial setup)
+
+**Features**:
+- ⚡ Minimal validation for speed
+- ⚠️ Assumes everything is configured
+- ⚠️ Can fail if environment has issues
+- 🎯 Best for experienced users only
+
+**Usage**:
+```bash
+./quick-deploy.sh
+```
+
+### 📋 **Comparison**
+
+| Feature | deploy-safe.sh | deploy.sh | quick-deploy.sh |
+|---------|----------------|-----------|-----------------|
+| Prerequisite checks | ✅ Full | ✅ Basic | ⚠️ Minimal |
+| API key validation | ✅ Full + Test | ✅ Test | ❌ No |
+| Credit balance check | ✅ Yes | ✅ Yes | ❌ No |
+| Region mismatch fix | ✅ Auto | ⚠️ Manual | ❌ No |
+| Orphaned resource cleanup | ✅ Yes | ❌ No | ❌ No |
+| Interactive prompts | ✅ Yes | ⚠️ Some | ❌ No |
+| Speed | 🟡 Slower | 🟢 Medium | 🟢 Fast |
+| Safety | 🟢 Highest | 🟡 Medium | 🔴 Lowest |
+
+**Recommendation**: Always use `deploy-safe.sh` unless you have a specific reason not to.
+
 ## Table of Contents
 - [Prerequisites](#prerequisites)
 - [One-Command Deployment](#one-command-deployment)
@@ -47,16 +112,19 @@ This guide provides step-by-step instructions for deploying the AWS Coding Copil
 
 ## One-Command Deployment
 
-Deploy everything with a single command:
+Deploy everything with the recommended safe deployment script:
 
 ```bash
-./deploy.sh
+./deploy-safe.sh
 ```
 
 That's it! 🚀
 
 The script will:
-- ✅ Validate prerequisites (AWS CLI, SAM CLI, API key)
+- ✅ Validate prerequisites (AWS CLI, SAM CLI, Docker, API key)
+- ✅ Test your Anthropic API key and check credit balance
+- ✅ Detect and fix region mismatches
+- ✅ Clean up orphaned resources from previous deployments
 - ✅ Build the Lambda function
 - ✅ Deploy backend infrastructure to AWS
 - ✅ Automatically configure the frontend with your API endpoint
@@ -64,8 +132,8 @@ The script will:
 - ✅ Display your application URL
 
 **First-time deployment**: The script will run `sam deploy --guided` and prompt you for configuration:
-- **Stack Name**: `aws-coding-copilot` (press Enter)
-- **AWS Region**: `us-east-1` (press Enter)
+- **Stack Name**: `prod-coding-copilot` (recommended, or press Enter)
+- **AWS Region**: `us-east-2` (recommended, or use your preferred region)
 - **Confirm changes**: `y`
 - **Allow SAM CLI IAM role creation**: `y`
 - **Disable rollback**: `n` (press Enter)
@@ -73,6 +141,8 @@ The script will:
 - **Save arguments**: `y` (press Enter)
 
 **Subsequent deployments**: The script will automatically use saved settings.
+
+**Alternative**: For faster deployments (after initial setup), you can use `./deploy.sh`, but `deploy-safe.sh` is recommended for safety.
 
 ## Manual Deployment (Optional)
 
