@@ -54,7 +54,7 @@ echo "✓ Step 4/6: Retrieving deployment outputs..."
 API_ENDPOINT=$(aws cloudformation describe-stacks \
   --stack-name $STACK_NAME \
   --region $REGION \
-  --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
+  --query 'Stacks[0].Outputs[?OutputKey==`ChatEndpoint`].OutputValue' \
   --output text)
 
 BUCKET_NAME=$(aws cloudformation describe-stacks \
@@ -78,7 +78,7 @@ echo ""
 echo "✓ Step 5/6: Updating frontend configuration..."
 cd ../../frontend
 # Replace placeholder with actual API endpoint
-sed -i.bak "s|YOUR_API_ENDPOINT_HERE|$API_ENDPOINT|g" app.js
+sed -i.bak "s|YOUR_API_ENDPOINT_HERE/chat|$API_ENDPOINT|g" app.js
 rm -f app.js.bak
 echo "   ✓ API endpoint configured in frontend"
 echo ""
