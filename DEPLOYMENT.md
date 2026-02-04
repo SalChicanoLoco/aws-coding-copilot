@@ -111,12 +111,12 @@ aws cloudformation describe-stacks \
 ```bash
 API_ENDPOINT=$(aws cloudformation describe-stacks \
   --stack-name aws-coding-copilot \
-  --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
+  --query 'Stacks[0].Outputs[?OutputKey==`ChatEndpoint`].OutputValue' \
   --output text \
   --region us-east-1)
 
 cd ../../frontend
-sed -i.bak "s|YOUR_API_ENDPOINT_HERE|$API_ENDPOINT|g" app.js
+sed -i.bak "s|YOUR_API_ENDPOINT_HERE/chat|$API_ENDPOINT|g" app.js
 rm -f app.js.bak
 ```
 
@@ -151,11 +151,11 @@ echo "Frontend URL: $FRONTEND_URL"
 ```bash
 API_URL=$(aws cloudformation describe-stacks \
   --stack-name aws-coding-copilot \
-  --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
+  --query 'Stacks[0].Outputs[?OutputKey==`ChatEndpoint`].OutputValue' \
   --output text \
   --region us-east-1)
 
-curl -X POST $API_URL/chat \
+curl -X POST $API_URL \
   -H "Content-Type: application/json" \
   -d '{
     "message": "Generate a Python Lambda function that processes S3 events",
@@ -265,11 +265,11 @@ aws ssm put-parameter \
 ```bash
 API_ENDPOINT=$(aws cloudformation describe-stacks \
   --stack-name aws-coding-copilot \
-  --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
+  --query 'Stacks[0].Outputs[?OutputKey==`ChatEndpoint`].OutputValue' \
   --output text \
   --region us-east-1)
 
-sed -i.bak "s|YOUR_API_ENDPOINT_HERE|$API_ENDPOINT|g" frontend/app.js
+sed -i.bak "s|YOUR_API_ENDPOINT_HERE/chat|$API_ENDPOINT|g" frontend/app.js
 ```
 
 ### Issue: Lambda timeout errors
