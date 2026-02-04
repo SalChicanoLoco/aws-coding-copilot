@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e  # Exit on any error
 
-REGION="us-east-1"
-STACK_NAME="aws-coding-copilot"
+REGION="us-east-2"
+STACK_NAME="prod-coding-copilot"
 
 echo "=========================================="
 echo "AWS Coding Copilot - Automated Deployment"
@@ -72,6 +72,26 @@ FRONTEND_URL=$(aws cloudformation describe-stacks \
 echo "   API Endpoint: $API_ENDPOINT"
 echo "   S3 Bucket: $BUCKET_NAME"
 echo "   Frontend URL: $FRONTEND_URL"
+echo ""
+
+# Validate bucket name was retrieved
+if [ -z "$BUCKET_NAME" ]; then
+    echo "⚠️  Failed to retrieve bucket name from CloudFormation outputs."
+    echo "   This may indicate the stack deployment didn't complete successfully."
+    exit 1
+fi
+
+# Validate bucket exists
+if ! aws s3 ls "s3://$BUCKET_NAME" --region $REGION 2>/dev/null; then
+    echo "⚠️  Bucket not found. CloudFormation may not have created it."
+    echo "   Checking stack status..."
+    aws cloudformation describe-stack-resources \
+      --stack-name $STACK_NAME \
+      --region $REGION \
+      --query 'StackResourceSummaries[?ResourceType==`AWS::S3::Bucket`]'
+    exit 1
+fi
+echo "   ✓ S3 bucket verified"
 echo ""
 
 # Step 5: Update frontend with API endpoint

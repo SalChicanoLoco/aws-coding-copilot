@@ -15,3 +15,4 @@ capabilities = "CAPABILITY_IAM"
 disable_rollback = true
 parameter_overrides = "Environment=\"prod\""
 resolve_s3 = true
+resolve_image_repos = true
