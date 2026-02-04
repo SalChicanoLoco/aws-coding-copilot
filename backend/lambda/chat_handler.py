@@ -278,7 +278,7 @@ def generate_response(user_message, conversation_history, request_id):
         
         # Call Anthropic API
         response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-3-haiku-20240307",
             max_tokens=2048,
             system=SYSTEM_PROMPT,
             messages=messages

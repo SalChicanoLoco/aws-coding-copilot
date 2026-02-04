@@ -40,7 +40,7 @@ if [ ! -z "$API_KEY" ]; then
         -H "anthropic-version: 2023-06-01" \
         -H "content-type: application/json" \
         -d '{
-            "model": "claude-3-5-sonnet-20241022",
+            "model": "claude-3-haiku-20240307",
             "max_tokens": 10,
             "messages": [{"role": "user", "content": "test"}]
         }' 2>&1)
