@@ -1,5 +1,53 @@
 # 🚀 AWS Coding Copilot
 
+> **Status**: Stack deployed successfully on AWS! ✅  
+> **Next**: Building Render version for simpler deployment
+
+## Quick Links
+- [Complete Development Journey](JOURNEY.md) - How we got here
+- [Project Vision](VISION.md) - Where we're going
+- [Render Migration Plan](RENDER_MIGRATION_PLAN.md) - Next steps
+
+## What This Is
+
+An AI-powered AWS development assistant that can deploy and run itself. Built with Claude 3.5 Sonnet, it helps developers:
+- Generate Lambda functions
+- Create SAM templates
+- Debug AWS deployments
+- Optimize costs
+- Learn AWS faster
+
+**Philosophy**: If a tool for building AWS apps can't deploy itself reliably, it can't be trusted to help others.
+
+## Two Versions
+
+### 1. AWS Version (Current) - Serverless
+**Cost**: ~$1-2/month + Anthropic API  
+**Best for**: AWS developers, production use  
+**Status**: ✅ Deployed and working
+
+See [AWS Deployment Guide](backend/infrastructure/DEPLOYMENT_INSTRUCTIONS.md)
+
+### 2. Render Version (Coming Soon) - Web Service
+**Cost**: $7/month + Anthropic API  
+**Best for**: Beginners, quick setup  
+**Status**: 🚧 In development
+
+See [Render Migration Plan](RENDER_MIGRATION_PLAN.md)
+
+## The Isomorphic Vision
+
+This tool demonstrates **isomorphic development**:
+- ✅ Deploys itself
+- ✅ Tests itself
+- ✅ Documents itself
+- ✅ Fixes itself
+- ⏳ Runs on multiple platforms
+
+[Read the full vision](VISION.md)
+
+---
+
 **Your AI-powered assistant for AWS development**
 
 AWS Coding Copilot is a production-ready AI coding assistant that helps developers work with AWS services. Built with AWS Lambda, API Gateway, DynamoDB, and powered by Anthropic's Claude AI, it provides expert guidance on Lambda functions, SAM templates, AWS SDK code, deployment troubleshooting, and cost optimization.
