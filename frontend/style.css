@@ -477,6 +477,68 @@ kbd {
     color: var(--text-primary);
 }
 
+.error-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    font-size: 1.1em;
+}
+
+.error-icon {
+    font-size: 1.5em;
+}
+
+.error-content {
+    color: var(--text-secondary);
+}
+
+.error-content p {
+    margin-bottom: var(--spacing-sm);
+    line-height: 1.6;
+}
+
+.error-details {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--border-radius-sm);
+}
+
+.error-details strong {
+    color: var(--color-primary);
+    display: block;
+    margin-bottom: var(--spacing-xs);
+}
+
+.error-details ul,
+.error-details ol {
+    margin-left: var(--spacing-lg);
+    margin-top: var(--spacing-xs);
+}
+
+.error-details li {
+    margin-bottom: var(--spacing-xs);
+    line-height: 1.5;
+}
+
+.error-details a {
+    color: var(--color-primary);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+}
+
+.error-details a:hover {
+    border-bottom-color: var(--color-primary);
+}
+
+.retry-hint {
+    color: var(--color-success);
+    font-weight: 500;
+    margin-top: var(--spacing-sm);
+}
+
 /* Loading indicator */
 .typing-indicator {
     display: flex;
