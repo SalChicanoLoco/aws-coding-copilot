@@ -6,6 +6,26 @@
 // This will be automatically replaced during deployment by deploy.sh
 const API_ENDPOINT = 'YOUR_API_ENDPOINT_HERE';
 
+// Demo mode - automatically enabled when API not configured
+// Set this to true to force demo mode even with a configured API
+const DEMO_MODE = API_ENDPOINT.includes('YOUR_API_ENDPOINT_HERE');
+
+// ============================================
+// NOTES ON SSL/CERTIFICATES
+// ============================================
+// If you encounter SSL certificate errors with your API Gateway:
+// 1. Ensure your API Gateway has a valid SSL certificate
+// 2. API Gateway endpoints should use AWS-managed certificates (valid by default)
+// 3. For custom domains, ensure certificate is properly configured in ACM
+// 4. For development/testing, use demo mode above (no API calls made)
+//
+// Common SSL errors:
+// - ERR_CERT_AUTHORITY_INVALID: Self-signed certificate
+// - ERR_CERT_COMMON_NAME_INVALID: Domain mismatch
+// - ERR_CERT_DATE_INVALID: Expired certificate
+//
+// Note: Browsers enforce SSL validation and cannot bypass it via JavaScript
+
 // ============================================
 // GLOBAL STATE
 // ============================================
@@ -120,6 +140,87 @@ function setLoading(loading) {
 }
 
 // ============================================
+// DEMO MODE FUNCTIONS
+// ============================================
+function generateDemoResponse(message) {
+    const responses = {
+        lambda: `Here's a Python Lambda function example:
+
+\`\`\`python
+import json
+import boto3
+
+def lambda_handler(event, context):
+    # Process S3 event
+    s3 = boto3.client('s3')
+    
+    for record in event['Records']:
+        bucket = record['s3']['bucket']['name']
+        key = record['s3']['object']['key']
+        
+        print(f'Processing {key} from {bucket}')
+        
+        # Your processing logic here
+        
+    return {
+        'statusCode': 200,
+        'body': json.dumps('Processing complete')
+    }
+\`\`\`
+
+This Lambda function processes S3 events. Each record contains the bucket name and object key.
+
+**Note:** You're in DEMO mode. Deploy the backend to use real AI responses.`,
+        
+        sam: `Here's a SAM template example:
+
+\`\`\`yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Sample SAM Template
+
+Resources:
+  MyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      CodeUri: ./src
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /hello
+            Method: get
+\`\`\`
+
+**Note:** You're in DEMO mode. Deploy the backend to use real AI responses.`,
+        
+        default: `I'm the AWS Coding Copilot! I can help with:
+- Writing Lambda functions (Python, Node.js)
+- Creating SAM/CloudFormation templates
+- AWS SDK examples
+- Deployment troubleshooting
+- Cost optimization
+
+**⚠️ DEMO MODE:** You're seeing a simulated response. To get real AI-powered assistance:
+1. Deploy the backend using \`./deploy.sh\`
+2. The API endpoint will be automatically configured
+
+Ask me about Lambda, S3, DynamoDB, or any AWS service!`
+    };
+    
+    const lowerMessage = message.toLowerCase();
+    if (lowerMessage.includes('lambda') || lowerMessage.includes('function')) {
+        return responses.lambda;
+    } else if (lowerMessage.includes('sam') || lowerMessage.includes('cloudformation') || lowerMessage.includes('template')) {
+        return responses.sam;
+    } else {
+        return responses.default;
+    }
+}
+
+// ============================================
 // API FUNCTIONS
 // ============================================
 async function sendMessage() {
@@ -127,12 +228,6 @@ async function sendMessage() {
     const message = userInput.value.trim();
     
     if (!message || isLoading) {
-        return;
-    }
-    
-    // Validate API endpoint is configured
-    if (API_ENDPOINT.includes('YOUR_API_ENDPOINT_HERE')) {
-        showError('API endpoint not configured. Please update the API_ENDPOINT in app.js with your actual API Gateway URL.');
         return;
     }
     
@@ -144,6 +239,18 @@ async function sendMessage() {
     setLoading(true);
     
     try {
+        // Check if in demo mode (API not configured)
+        if (DEMO_MODE) {
+            // Simulate API delay
+            await new Promise(resolve => setTimeout(resolve, 800));
+            
+            // Generate demo response
+            const demoResponse = generateDemoResponse(message);
+            addMessage('assistant', demoResponse);
+            return;
+        }
+        
+        // Make real API call
         const response = await fetch(API_ENDPOINT, {
             method: 'POST',
             headers: {
@@ -178,7 +285,33 @@ async function sendMessage() {
         
     } catch (error) {
         console.error('Error:', error);
-        showError(error.message || 'Failed to connect to the server. Please try again.');
+        
+        // Detect SSL/certificate errors
+        let errorMessage = error.message || 'Failed to connect to the server. Please try again.';
+        
+        if (error.message && (
+            error.message.includes('SSL') || 
+            error.message.includes('certificate') || 
+            error.message.includes('CERT') ||
+            error.message.includes('ERR_CERT') ||
+            error.message.includes('NET::ERR_CERT')
+        )) {
+            errorMessage = `SSL Certificate Error: ${error.message}\n\n` +
+                          `This usually means:\n` +
+                          `1. The API endpoint uses a self-signed certificate\n` +
+                          `2. The SSL certificate has expired\n` +
+                          `3. The certificate domain doesn't match\n\n` +
+                          `For development, you can use demo mode (already active if API not configured).`;
+        } else if (error.message && error.message.includes('Failed to fetch')) {
+            errorMessage = `Connection failed. Possible causes:\n` +
+                          `1. API endpoint is not accessible\n` +
+                          `2. CORS is not configured on the API\n` +
+                          `3. SSL/certificate issues\n` +
+                          `4. Network connectivity problems\n\n` +
+                          `Try using demo mode for testing without a backend.`;
+        }
+        
+        showError(errorMessage);
     } finally {
         setLoading(false);
         userInput.focus();
