@@ -1,0 +1,6 @@
+# Trivy Ignore File
+# Add CVEs that are false positives or accepted risks
+# Format: CVE-YYYY-XXXXX
+
+# Example:
+# CVE-2024-12345  # Accepted risk: Only affects development environment
