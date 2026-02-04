@@ -24,7 +24,6 @@ Parameters:
 # ============================================
 Globals:
   Function:
-    Runtime: python3.12
     Timeout: 30
     MemorySize: 512
 
@@ -62,8 +61,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub '${Environment}-coding-copilot-chat'
-      CodeUri: ../lambda/
-      Handler: chat_handler.lambda_handler
+      PackageType: Image
       Description: Chat handler for AWS Coding Copilot
       Environment:
         Variables:
@@ -93,6 +91,10 @@ Resources:
       Tags:
         Environment: !Ref Environment
         Application: AWS-Coding-Copilot
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: ../lambda/
+      DockerTag: v1
 
   # API Gateway
   CopilotApi:

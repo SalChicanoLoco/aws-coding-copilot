@@ -58,6 +58,7 @@ AWS Coding Copilot is a production-ready AI coding assistant that helps develope
 - **Multi-Language Support**: Python, Node.js, and other AWS SDK languages
 - **Conversation History**: Maintains context across questions (30-day retention)
 - **Fast & Scalable**: Serverless architecture with pay-per-use pricing
+- **Container-Native**: Lambda deployed as container image for consistency and flexibility
 - **Secure**: API keys stored in SSM Parameter Store, encrypted at rest
 - **Cost-Effective**: < $5/month for light usage (excluding Anthropic API costs)
 
@@ -78,7 +79,7 @@ AWS Coding Copilot is a production-ready AI coding assistant that helps develope
             ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                   │
-│  AWS Cloud (us-east-1)                                           │
+│  AWS Cloud (us-east-2)                                           │
 │                                                                   │
 │  ┌───────────────┐                           ┌──────────────┐   │
 │  │  S3 Bucket    │                           │     SSM      │   │
@@ -89,7 +90,8 @@ AWS Coding Copilot is a production-ready AI coding assistant that helps develope
 │  ┌───────────────┐      ┌──────────────┐           │           │
 │  │  API Gateway  │──────│    Lambda    │───────────┘           │
 │  │   REST API    │      │   Function   │                        │
-│  └───────────────┘      │ (Python 3.12)│                        │
+│  └───────────────┘      │ (Container)  │                        │
+│                          │ Python 3.12  │                        │
 │                          └──────┬───────┘                        │
 │                                 │                                │
 │                                 ▼                                │
@@ -109,40 +111,77 @@ AWS Coding Copilot is a production-ready AI coding assistant that helps develope
 
 ### Prerequisites
 
-- [AWS CLI](https://aws.amazon.com/cli/) (v2.x or later)
+- [AWS CLI](https://aws.amazon.com/cli/) (v2.x or later) - configured with credentials
 - [SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) (v1.100.0 or later)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop) - required for containerized builds
 - [Anthropic API Key](https://console.anthropic.com/)
 - AWS Account with appropriate permissions
 
-### Deploy in ONE Command
+### Deploy in ONE Command ✨
+
+**NEW**: Safe deployment with automatic validation and region fixing!
 
 1. **Prerequisites** (one-time setup):
    ```bash
-   # Store your Anthropic API key
+   # Store your Anthropic API key (use your AWS region)
    aws ssm put-parameter --name /prod/anthropic-api-key \
-     --value "sk-ant-..." --type SecureString --region us-east-1
+     --value "sk-ant-..." --type SecureString --region us-east-2
    ```
 
 2. **Deploy** (one command):
    ```bash
-   ./deploy.sh
+   ./deploy-safe.sh
    ```
 
 3. **Use**: Open the URL shown at the end of deployment
 
 That's it! 🚀
 
-The script will:
-- ✅ Validate prerequisites
-- ✅ Build the Lambda function
-- ✅ Deploy infrastructure to AWS
-- ✅ Automatically configure the frontend
-- ✅ Upload to S3
-- ✅ Display your application URL
+**What deploy-safe.sh does:**
+- ✅ Validates AWS credentials and Docker
+- ✅ Detects and fixes region mismatches automatically
+- ✅ Checks for and cleans up orphaned resources
+- ✅ Validates Anthropic API key exists
+- ✅ Builds Lambda container image with Docker
+- ✅ Deploys infrastructure to AWS
+- ✅ Automatically configures the frontend with API endpoint
+- ✅ Uploads frontend to S3
+- ✅ Displays your application URL
+
+### Alternative: Legacy Deployment
+
+```bash
+./deploy.sh  # Original deployment script (less validation)
+```
+
+### Validate Your Deployment
+
+Test that everything works end-to-end:
+
+```bash
+./validate-self.sh
+```
+
+This will:
+- ✅ Check stack deployment status
+- ✅ Test the API endpoint with a real message
+- ✅ Verify frontend accessibility
+- ✅ Confirm the app is fully operational
+
+### Cleanup Failed Deployments
+
+If something goes wrong:
+
+```bash
+cd backend/infrastructure
+./cleanup.sh
+```
+
+Then try deploying again with `./deploy-safe.sh`.
 
 ### Manual Deployment
 
-If you prefer step-by-step control, see [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
+If you prefer step-by-step control, see [backend/infrastructure/DEPLOYMENT_INSTRUCTIONS.md](backend/infrastructure/DEPLOYMENT_INSTRUCTIONS.md) for detailed instructions.
 
 ## 📁 Project Structure
 
@@ -155,12 +194,12 @@ aws-coding-copilot/
 ├── backend/
 │   ├── lambda/
 │   │   ├── chat_handler.py # Lambda function
-│   │   └── requirements.txt # Python dependencies
+│   │   ├── requirements.txt # Python dependencies
+│   │   └── Dockerfile      # Lambda container image
 │   └── infrastructure/
 │       └── template.yaml    # SAM template
-├── deploy.sh               # Automated deployment script
-├── validate.sh             # Prerequisites validation
-├── simulate-deploy.sh      # Dry-run deployment
+├── deploy-safe.sh          # Safe deployment script
+├── validate-self.sh        # Deployment validation
 ├── DEPLOYMENT.md           # Detailed deployment guide
 └── README.md               # This file
 ```
@@ -242,14 +281,41 @@ Based on light usage (< 1,000 requests/month):
 
 ### Common Issues
 
+**"Region mismatch" warning**
+```bash
+# The deploy-safe.sh script will detect this automatically and offer to fix it
+# Or manually update your AWS CLI region:
+aws configure set region us-east-2
+```
+
 **"Parameter /prod/anthropic-api-key not found"**
 ```bash
 aws ssm put-parameter \
   --name /prod/anthropic-api-key \
   --value "YOUR_KEY" \
   --type SecureString \
-  --region us-east-1
+  --region us-east-2
 ```
+
+**"Early Validation" errors during deployment**
+```bash
+# Usually caused by orphaned S3 buckets from previous failed deployments
+# The deploy-safe.sh script will detect and offer to clean these automatically
+# Or manually check and clean:
+aws s3 ls | grep coding-copilot
+aws s3 rb s3://BUCKET-NAME --force --region us-east-2
+```
+
+**"Docker is not running"**
+- Start Docker Desktop and wait for it to fully start
+- Verify with: `docker info`
+- **Note**: Docker is required for container image deployment. The Lambda function is packaged as a Docker container for better consistency and flexibility.
+
+**"Image build failed"**
+- Ensure Docker has enough disk space
+- Check that the Dockerfile in `backend/lambda/` is valid
+- Verify Python dependencies in `requirements.txt` are installable
+- Run `sam build` manually to see detailed error messages
 
 **CORS errors in browser**
 - Check API Gateway CORS configuration
@@ -257,14 +323,23 @@ aws ssm put-parameter \
 - Clear browser cache
 
 **"API endpoint not configured"**
-- Run `./deploy.sh` again to reconfigure frontend
+- Run `./deploy-safe.sh` again to reconfigure frontend
 
 **S3 website not loading**
 - Verify bucket policy allows public read access
 - Check that website hosting is enabled
 - Ensure frontend files were uploaded
 
-For more troubleshooting, see [DEPLOYMENT.md](DEPLOYMENT.md#troubleshooting).
+**Stack is stuck in ROLLBACK_COMPLETE**
+```bash
+cd backend/infrastructure
+./cleanup.sh
+# Then redeploy:
+cd ../..
+./deploy-safe.sh
+```
+
+For more troubleshooting, see [backend/infrastructure/DEPLOYMENT_INSTRUCTIONS.md](backend/infrastructure/DEPLOYMENT_INSTRUCTIONS.md).
 
 ## 📚 Additional Documentation
 
