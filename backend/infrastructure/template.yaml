@@ -144,56 +144,7 @@ Resources:
             Action: s3:GetObject
             Resource: !Sub '${FrontendBucket.Arn}/*'
 
-  # CloudFront Distribution
-  CloudFrontDistribution:
-    Type: AWS::CloudFront::Distribution
-    Properties:
-      DistributionConfig:
-        Enabled: true
-        Comment: !Sub 'CloudFront distribution for ${Environment} AWS Coding Copilot'
-        DefaultRootObject: index.html
-        Origins:
-          - Id: S3Origin
-            DomainName: !GetAtt FrontendBucket.RegionalDomainName
-            CustomOriginConfig:
-              HTTPPort: 80
-              HTTPSPort: 443
-              OriginProtocolPolicy: http-only
-        DefaultCacheBehavior:
-          TargetOriginId: S3Origin
-          ViewerProtocolPolicy: redirect-to-https
-          AllowedMethods:
-            - GET
-            - HEAD
-            - OPTIONS
-          CachedMethods:
-            - GET
-            - HEAD
-          ForwardedValues:
-            QueryString: false
-            Cookies:
-              Forward: none
-          Compress: true
-          DefaultTTL: 86400
-          MaxTTL: 31536000
-          MinTTL: 0
-        CustomErrorResponses:
-          - ErrorCode: 404
-            ResponseCode: 200
-            ResponsePagePath: /index.html
-            ErrorCachingMinTTL: 300
-          - ErrorCode: 403
-            ResponseCode: 200
-            ResponsePagePath: /index.html
-            ErrorCachingMinTTL: 300
-        PriceClass: PriceClass_100
-        ViewerCertificate:
-          CloudFrontDefaultCertificate: true
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Application
-          Value: AWS-Coding-Copilot
+
 
 # ============================================
 # CONDITIONS
@@ -229,21 +180,9 @@ Outputs:
     Export:
       Name: !Sub '${Environment}-CodingCopilot-FrontendURL'
 
-  CloudFrontDistributionId:
-    Description: CloudFront Distribution ID
-    Value: !Ref CloudFrontDistribution
-    Export:
-      Name: !Sub '${Environment}-CodingCopilot-CloudFrontDistributionId'
-
-  CloudFrontDistributionDomainName:
-    Description: CloudFront Distribution Domain Name
-    Value: !GetAtt CloudFrontDistribution.DomainName
-    Export:
-      Name: !Sub '${Environment}-CodingCopilot-CloudFrontDomain'
-
   FrontendURL:
-    Description: Frontend URL (CloudFront)
-    Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
+    Description: Frontend URL (S3 Website)
+    Value: !GetAtt FrontendBucket.WebsiteURL
     Export:
       Name: !Sub '${Environment}-CodingCopilot-URL'
 

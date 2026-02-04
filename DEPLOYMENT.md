@@ -4,9 +4,8 @@ This guide provides step-by-step instructions for deploying the AWS Coding Copil
 
 ## Table of Contents
 - [Prerequisites](#prerequisites)
-- [Initial Setup](#initial-setup)
-- [Backend Deployment](#backend-deployment)
-- [Frontend Deployment](#frontend-deployment)
+- [One-Command Deployment](#one-command-deployment)
+- [Manual Deployment (Optional)](#manual-deployment-optional)
 - [Testing](#testing)
 - [Updates and Maintenance](#updates-and-maintenance)
 - [Troubleshooting](#troubleshooting)
@@ -25,103 +24,80 @@ This guide provides step-by-step instructions for deploying the AWS Coding Copil
   ```
 - **Anthropic API Key**: Required for AI functionality
 
-### AWS Configuration
-1. Configure AWS CLI with your credentials:
+### One-Time Setup
+
+1. **Configure AWS CLI** with your credentials:
    ```bash
    aws configure
    ```
    Set region to `us-east-1` for consistency.
 
-2. Verify your configuration:
+2. **Store Anthropic API key** in AWS Systems Manager Parameter Store:
    ```bash
-   aws sts get-caller-identity
+   aws ssm put-parameter --name /prod/anthropic-api-key \
+     --value "sk-ant-..." --type SecureString --region us-east-1
    ```
 
-## Initial Setup
+3. **Verify setup**:
+   ```bash
+   aws sts get-caller-identity
+   aws ssm get-parameter --name /prod/anthropic-api-key \
+     --with-decryption --region us-east-1
+   ```
 
-### 1. Store Anthropic API Key
+## One-Command Deployment
 
-Store your Anthropic API key in AWS Systems Manager Parameter Store:
-
-```bash
-aws ssm put-parameter \
-  --name /prod/anthropic-api-key \
-  --value "YOUR_ANTHROPIC_API_KEY_HERE" \
-  --type SecureString \
-  --region us-east-1
-```
-
-Verify the parameter was created:
-```bash
-aws ssm get-parameter \
-  --name /prod/anthropic-api-key \
-  --with-decryption \
-  --region us-east-1
-```
-
-### 2. Clone Repository (if not already done)
+Deploy everything with a single command:
 
 ```bash
-git clone https://github.com/your-username/aws-coding-copilot.git
-cd aws-coding-copilot
-```
-
-## Backend Deployment
-
-### Option 1: Automated Deployment (Recommended)
-
-Use the provided deployment script:
-
-```bash
-chmod +x deploy.sh
 ./deploy.sh
 ```
 
-This script will:
-- Validate prerequisites
-- Build the SAM application
-- Deploy to AWS
-- Display all endpoints
+That's it! 🚀
 
-### Option 2: Manual Deployment
+The script will:
+- ✅ Validate prerequisites (AWS CLI, SAM CLI, API key)
+- ✅ Build the Lambda function
+- ✅ Deploy backend infrastructure to AWS
+- ✅ Automatically configure the frontend with your API endpoint
+- ✅ Deploy the frontend to S3
+- ✅ Display your application URL
 
-#### Step 1: Build the Application
+**First-time deployment**: The script will run `sam deploy --guided` and prompt you for configuration:
+- **Stack Name**: `aws-coding-copilot` (press Enter)
+- **AWS Region**: `us-east-1` (press Enter)
+- **Confirm changes**: `y`
+- **Allow SAM CLI IAM role creation**: `y`
+- **Disable rollback**: `n` (press Enter)
+- **CodingCopilotFunction has no authorization**: `y`
+- **Save arguments**: `y` (press Enter)
+
+**Subsequent deployments**: The script will automatically use saved settings.
+
+## Manual Deployment (Optional)
+
+If you prefer step-by-step control:
+
+### Step 1: Build the Application
 
 ```bash
 cd backend/infrastructure
 sam build
 ```
 
-#### Step 2: Deploy (First Time)
+### Step 2: Deploy Backend
 
-For the first deployment, use guided mode:
-
+For first deployment:
 ```bash
 sam deploy --guided
 ```
 
-Answer the prompts:
-- **Stack Name**: `aws-coding-copilot`
-- **AWS Region**: `us-east-1`
-- **Parameter Environment**: `prod`
-- **Parameter FrontendBucketName**: Press Enter (auto-generated)
-- **Confirm changes before deploy**: `Y`
-- **Allow SAM CLI IAM role creation**: `Y`
-- **Disable rollback**: `N`
-- **CodingCopilotFunction has no authorization**: `Y`
-- **Save arguments to configuration file**: `Y`
-- **SAM configuration file**: Press Enter (default)
-- **SAM configuration environment**: Press Enter (default)
-
-#### Step 3: Deploy (Subsequent Times)
-
-After the first deployment, simply run:
-
+For subsequent deployments:
 ```bash
 sam deploy
 ```
 
-#### Step 4: Get Stack Outputs
+### Step 3: Get Stack Outputs
 
 ```bash
 aws cloudformation describe-stacks \
@@ -130,13 +106,7 @@ aws cloudformation describe-stacks \
   --query 'Stacks[0].Outputs'
 ```
 
-Save these values - you'll need them for frontend deployment.
-
-## Frontend Deployment
-
-### Step 1: Update API Endpoint
-
-Get the API endpoint from the stack outputs:
+### Step 4: Update Frontend Configuration
 
 ```bash
 API_ENDPOINT=$(aws cloudformation describe-stacks \
@@ -145,31 +115,12 @@ API_ENDPOINT=$(aws cloudformation describe-stacks \
   --output text \
   --region us-east-1)
 
-echo "API Endpoint: $API_ENDPOINT"
+cd ../../frontend
+sed -i.bak "s|YOUR_API_ENDPOINT_HERE/chat|$API_ENDPOINT|g" app.js
+rm -f app.js.bak
 ```
 
-Update `frontend/app.js`:
-
-```bash
-# On macOS:
-sed -i '' "s|YOUR_API_ENDPOINT_HERE/chat|$API_ENDPOINT|g" frontend/app.js
-
-# On Linux:
-sed -i "s|YOUR_API_ENDPOINT_HERE/chat|$API_ENDPOINT|g" frontend/app.js
-```
-
-Or manually edit `frontend/app.js` and replace:
-```javascript
-const API_ENDPOINT = 'YOUR_API_ENDPOINT_HERE/chat';
-```
-with:
-```javascript
-const API_ENDPOINT = 'https://xxxxx.execute-api.us-east-1.amazonaws.com/prod/chat';
-```
-
-### Step 2: Deploy Frontend to S3
-
-Get the bucket name and deploy:
+### Step 5: Deploy Frontend to S3
 
 ```bash
 BUCKET_NAME=$(aws cloudformation describe-stacks \
@@ -178,29 +129,10 @@ BUCKET_NAME=$(aws cloudformation describe-stacks \
   --output text \
   --region us-east-1)
 
-echo "Deploying to bucket: $BUCKET_NAME"
-
-aws s3 sync frontend/ s3://$BUCKET_NAME/ --delete --region us-east-1
+aws s3 sync . s3://$BUCKET_NAME/ --delete --region us-east-1
 ```
 
-### Step 3: Invalidate CloudFront Cache
-
-```bash
-DIST_ID=$(aws cloudformation describe-stacks \
-  --stack-name aws-coding-copilot \
-  --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' \
-  --output text \
-  --region us-east-1)
-
-echo "Invalidating CloudFront distribution: $DIST_ID"
-
-aws cloudfront create-invalidation \
-  --distribution-id $DIST_ID \
-  --paths "/*" \
-  --region us-east-1
-```
-
-### Step 4: Get Frontend URL
+### Step 6: Get Frontend URL
 
 ```bash
 FRONTEND_URL=$(aws cloudformation describe-stacks \
@@ -210,7 +142,6 @@ FRONTEND_URL=$(aws cloudformation describe-stacks \
   --region us-east-1)
 
 echo "Frontend URL: $FRONTEND_URL"
-echo "Open this URL in your browser!"
 ```
 
 ## Testing
@@ -243,14 +174,19 @@ Expected response:
 
 ### Test Frontend
 
-1. Open the Frontend URL in your browser
-2. Type a message like: "Generate a Python Lambda function that processes S3 events"
-3. Click Send
-4. Verify you receive a response
+1. Get your frontend URL:
+   ```bash
+   aws cloudformation describe-stacks \
+     --stack-name aws-coding-copilot \
+     --query 'Stacks[0].Outputs[?OutputKey==`FrontendURL`].OutputValue' \
+     --output text \
+     --region us-east-1
+   ```
+
+2. Open the URL in your browser
+3. Type a message and verify you receive a response
 
 ### Verify DynamoDB
-
-Check that conversations are being stored:
 
 ```bash
 TABLE_NAME=$(aws cloudformation describe-stacks \
@@ -267,19 +203,22 @@ aws dynamodb scan \
 
 ## Updates and Maintenance
 
-### Update Backend Code
+### Update Backend
 
+```bash
+./deploy.sh
+```
+
+Or manually:
 ```bash
 cd backend/infrastructure
 sam build
 sam deploy
 ```
 
-### Update Frontend
+### Update Frontend Only
 
 ```bash
-# Make changes to frontend files
-# Then sync to S3
 BUCKET_NAME=$(aws cloudformation describe-stacks \
   --stack-name aws-coding-copilot \
   --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' \
@@ -287,15 +226,6 @@ BUCKET_NAME=$(aws cloudformation describe-stacks \
   --region us-east-1)
 
 aws s3 sync frontend/ s3://$BUCKET_NAME/ --delete --region us-east-1
-
-# Invalidate CloudFront cache
-DIST_ID=$(aws cloudformation describe-stacks \
-  --stack-name aws-coding-copilot \
-  --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' \
-  --output text \
-  --region us-east-1)
-
-aws cloudfront create-invalidation --distribution-id $DIST_ID --paths "/*" --region us-east-1
 ```
 
 ### View Lambda Logs
@@ -304,11 +234,16 @@ aws cloudfront create-invalidation --distribution-id $DIST_ID --paths "/*" --reg
 sam logs -n CodingCopilotFunction --stack-name aws-coding-copilot --tail
 ```
 
+Or using AWS CLI:
+```bash
+aws logs tail /aws/lambda/prod-coding-copilot-chat --follow --region us-east-1
+```
+
 ## Troubleshooting
 
 ### Issue: "Parameter /prod/anthropic-api-key not found"
 
-**Solution**: Make sure the API key is stored in SSM:
+**Solution**: Store the API key in SSM:
 ```bash
 aws ssm put-parameter \
   --name /prod/anthropic-api-key \
@@ -320,19 +255,21 @@ aws ssm put-parameter \
 ### Issue: CORS errors in browser
 
 **Solution**: 
-1. Check that the Lambda function is returning proper CORS headers
-2. Verify the API Gateway CORS configuration in the SAM template
-3. Check browser console for specific error messages
+1. Check Lambda logs for errors
+2. Verify the API Gateway CORS configuration in template.yaml
+3. Clear browser cache and try again
 
 ### Issue: Frontend shows "API endpoint not configured"
 
-**Solution**: Update the API_ENDPOINT in `frontend/app.js` with your actual API Gateway URL.
-
-### Issue: CloudFront shows old content
-
-**Solution**: Invalidate the CloudFront cache:
+**Solution**: Run the deployment script again, or manually update `frontend/app.js`:
 ```bash
-aws cloudfront create-invalidation --distribution-id YOUR_DIST_ID --paths "/*"
+API_ENDPOINT=$(aws cloudformation describe-stacks \
+  --stack-name aws-coding-copilot \
+  --query 'Stacks[0].Outputs[?OutputKey==`ChatEndpoint`].OutputValue' \
+  --output text \
+  --region us-east-1)
+
+sed -i.bak "s|YOUR_API_ENDPOINT_HERE/chat|$API_ENDPOINT|g" frontend/app.js
 ```
 
 ### Issue: Lambda timeout errors
@@ -340,24 +277,40 @@ aws cloudfront create-invalidation --distribution-id YOUR_DIST_ID --paths "/*"
 **Solution**: 
 1. Check Lambda logs for specific errors
 2. Verify Anthropic API is responding
-3. Consider increasing Lambda timeout in template.yaml
+3. Consider increasing Lambda timeout in template.yaml (currently 30s)
 
-### Viewing Detailed Logs
+### Issue: S3 website not loading
 
-```bash
-# Lambda logs
-aws logs tail /aws/lambda/prod-coding-copilot-chat --follow --region us-east-1
-
-# API Gateway logs
-aws logs tail API-Gateway-Execution-Logs_xxxxx/prod --follow --region us-east-1
-```
+**Solution**:
+1. Verify bucket policy allows public read access
+2. Check that website hosting is enabled
+3. Ensure files were uploaded successfully:
+   ```bash
+   BUCKET_NAME=$(aws cloudformation describe-stacks \
+     --stack-name aws-coding-copilot \
+     --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' \
+     --output text \
+     --region us-east-1)
+   
+   aws s3 ls s3://$BUCKET_NAME/ --region us-east-1
+   ```
 
 ## Cleanup
 
 To delete all resources:
 
 ```bash
-# Delete CloudFormation stack
+# Get bucket name before deleting stack
+BUCKET_NAME=$(aws cloudformation describe-stacks \
+  --stack-name aws-coding-copilot \
+  --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' \
+  --output text \
+  --region us-east-1)
+
+# Empty the S3 bucket first (required before stack deletion)
+aws s3 rm s3://$BUCKET_NAME/ --recursive --region us-east-1
+
+# Delete the CloudFormation stack
 aws cloudformation delete-stack \
   --stack-name aws-coding-copilot \
   --region us-east-1
@@ -366,21 +319,9 @@ aws cloudformation delete-stack \
 aws cloudformation wait stack-delete-complete \
   --stack-name aws-coding-copilot \
   --region us-east-1
-
-# Note: S3 bucket must be empty before stack deletion
-# If deletion fails due to non-empty bucket:
-BUCKET_NAME=$(aws cloudformation describe-stacks \
-  --stack-name aws-coding-copilot \
-  --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' \
-  --output text \
-  --region us-east-1)
-
-aws s3 rm s3://$BUCKET_NAME/ --recursive --region us-east-1
-
-# Then retry stack deletion
 ```
 
-Optionally, remove the SSM parameter:
+Optionally, remove the API key:
 ```bash
 aws ssm delete-parameter \
   --name /prod/anthropic-api-key \
@@ -391,21 +332,21 @@ aws ssm delete-parameter \
 
 Expected monthly costs for light usage (< 1000 requests/month):
 
-- **Lambda**: < $0.50 (512MB, ~2s execution time)
-- **API Gateway**: < $1.00 (< 1000 requests)
-- **DynamoDB**: < $0.50 (PAY_PER_REQUEST, with TTL)
-- **S3**: < $0.50 (storage + requests)
-- **CloudFront**: < $1.00 (data transfer)
+- **S3**: ~$0.50 (storage + requests)
+- **Lambda**: ~$0.20 (512MB, light usage)
+- **API Gateway**: ~$0.10
+- **DynamoDB**: ~$0.25 (PAY_PER_REQUEST, with TTL)
 - **Anthropic API**: Variable (based on usage)
 
-**Total AWS Infrastructure**: < $5/month (excluding Anthropic API costs)
+**Total AWS Infrastructure**: ~$1-2/month (excluding Anthropic API costs)
 
-To minimize costs:
-- DynamoDB uses PAY_PER_REQUEST (no idle costs)
-- 30-day TTL automatically deletes old data
-- No VPC or NAT Gateway costs
-- CloudFront PriceClass_100 (cheapest option)
-- Can disable CloudFront and use S3 website directly to save ~$1/month
+### Cost Optimization
+
+- ✅ DynamoDB uses PAY_PER_REQUEST (no idle costs)
+- ✅ 30-day TTL automatically deletes old conversations
+- ✅ No VPC or NAT Gateway costs
+- ✅ S3 website hosting is extremely cheap
+- ✅ No CloudFront costs
 
 ## Support
 

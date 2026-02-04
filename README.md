@@ -32,15 +32,16 @@ AWS Coding Copilot is a production-ready AI coding assistant that helps develope
 │                                                                   │
 │  AWS Cloud (us-east-1)                                           │
 │                                                                   │
-│  ┌───────────────┐      ┌──────────────┐      ┌──────────────┐ │
-│  │  CloudFront   │──────│  S3 Bucket   │      │     SSM      │ │
-│  │ Distribution  │      │  (Frontend)  │      │  Parameter   │ │
-│  └───────────────┘      └──────────────┘      │    Store     │ │
-│                                                │  (API Key)   │ │
-│  ┌───────────────┐      ┌──────────────┐      └──────┬───────┘ │
-│  │  API Gateway  │──────│    Lambda    │─────────────┘         │
+│  ┌───────────────┐                           ┌──────────────┐   │
+│  │  S3 Bucket    │                           │     SSM      │   │
+│  │  (Frontend)   │                           │  Parameter   │   │
+│  │ Static Website│                           │    Store     │   │
+│  └───────────────┘                           │  (API Key)   │   │
+│                                               └──────┬───────┘   │
+│  ┌───────────────┐      ┌──────────────┐           │           │
+│  │  API Gateway  │──────│    Lambda    │───────────┘           │
 │  │   REST API    │      │   Function   │                        │
-│  └───────────────┘      │ (Python 3.13)│                        │
+│  └───────────────┘      │ (Python 3.12)│                        │
 │                          └──────┬───────┘                        │
 │                                 │                                │
 │                                 ▼                                │
@@ -65,29 +66,31 @@ AWS Coding Copilot is a production-ready AI coding assistant that helps develope
 - [Anthropic API Key](https://console.anthropic.com/)
 - AWS Account with appropriate permissions
 
-### One-Command Deployment
+### Deploy in ONE Command
 
-1. **Store your Anthropic API key:**
+1. **Prerequisites** (one-time setup):
    ```bash
-   aws ssm put-parameter \
-     --name /prod/anthropic-api-key \
-     --value "YOUR_ANTHROPIC_API_KEY" \
-     --type SecureString \
-     --region us-east-1
+   # Store your Anthropic API key
+   aws ssm put-parameter --name /prod/anthropic-api-key \
+     --value "sk-ant-..." --type SecureString --region us-east-1
    ```
 
-2. **Deploy everything:**
+2. **Deploy** (one command):
    ```bash
    ./deploy.sh
    ```
 
-That's it! The script will:
+3. **Use**: Open the URL shown at the end of deployment
+
+That's it! 🚀
+
+The script will:
 - ✅ Validate prerequisites
 - ✅ Build the Lambda function
 - ✅ Deploy infrastructure to AWS
-- ✅ Configure and upload the frontend
-- ✅ Invalidate CloudFront cache
-- ✅ Run a test API call
+- ✅ Automatically configure the frontend
+- ✅ Upload to S3
+- ✅ Display your application URL
 
 ### Manual Deployment
 
@@ -164,12 +167,11 @@ Based on light usage (< 1,000 requests/month):
 
 | Service | Monthly Cost |
 |---------|--------------|
-| Lambda (512MB, ~2s/request) | < $0.50 |
-| API Gateway | < $1.00 |
-| DynamoDB (PAY_PER_REQUEST) | < $0.50 |
-| S3 (storage + requests) | < $0.50 |
-| CloudFront (data transfer) | < $1.00 |
-| **Total AWS Infrastructure** | **< $5.00** |
+| S3 (storage + requests) | ~$0.50 |
+| Lambda (512MB, ~2s/request) | ~$0.20 |
+| API Gateway | ~$0.10 |
+| DynamoDB (PAY_PER_REQUEST) | ~$0.25 |
+| **Total AWS Infrastructure** | **~$1-2** |
 | Anthropic API (variable) | Based on usage |
 
 ### Cost Optimization Tips
@@ -177,8 +179,8 @@ Based on light usage (< 1,000 requests/month):
 - ✅ DynamoDB uses PAY_PER_REQUEST (no idle costs)
 - ✅ 30-day TTL automatically deletes old conversations
 - ✅ No VPC or NAT Gateway costs
-- ✅ CloudFront uses PriceClass_100 (cheapest)
-- ✅ Can disable CloudFront and use S3 directly to save ~$1/month
+- ✅ S3 website hosting is extremely cheap
+- ✅ No CloudFront costs
 
 ## 🔒 Security Features
 
@@ -207,18 +209,12 @@ aws ssm put-parameter \
 - Clear browser cache
 
 **"API endpoint not configured"**
-- Update `API_ENDPOINT` in `frontend/app.js` with your actual API Gateway URL
+- Run `./deploy.sh` again to reconfigure frontend
 
-**CloudFront shows old content**
-```bash
-DIST_ID=$(aws cloudformation describe-stacks \
-  --stack-name aws-coding-copilot \
-  --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' \
-  --output text \
-  --region us-east-1)
-
-aws cloudfront create-invalidation --distribution-id $DIST_ID --paths "/*"
-```
+**S3 website not loading**
+- Verify bucket policy allows public read access
+- Check that website hosting is enabled
+- Ensure frontend files were uploaded
 
 For more troubleshooting, see [DEPLOYMENT.md](DEPLOYMENT.md#troubleshooting).
 
@@ -264,6 +260,16 @@ sam logs -n CodingCopilotFunction --stack-name aws-coding-copilot --tail
 To remove all resources:
 
 ```bash
+# Get bucket name first
+BUCKET_NAME=$(aws cloudformation describe-stacks \
+  --stack-name aws-coding-copilot \
+  --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' \
+  --output text \
+  --region us-east-1)
+
+# Empty S3 bucket (required before stack deletion)
+aws s3 rm s3://$BUCKET_NAME/ --recursive --region us-east-1
+
 # Delete the CloudFormation stack
 aws cloudformation delete-stack \
   --stack-name aws-coding-copilot \
