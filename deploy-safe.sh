@@ -51,8 +51,14 @@ if [ "$CLI_REGION" != "$SAM_REGION" ]; then
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         # Create backup
         cp backend/infrastructure/samconfig.toml backend/infrastructure/samconfig.toml.bak
-        # Update both region lines
-        sed -i "s/region = \".*\"/region = \"$CLI_REGION\"/g" backend/infrastructure/samconfig.toml
+        # Update both region lines (works on both Linux and macOS)
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            # macOS
+            sed -i '' "s/region = \".*\"/region = \"$CLI_REGION\"/g" backend/infrastructure/samconfig.toml
+        else
+            # Linux
+            sed -i "s/region = \".*\"/region = \"$CLI_REGION\"/g" backend/infrastructure/samconfig.toml
+        fi
         echo -e "${GREEN}✓${NC} Updated samconfig.toml to $CLI_REGION (backup saved as samconfig.toml.bak)"
         SAM_REGION=$CLI_REGION
     else

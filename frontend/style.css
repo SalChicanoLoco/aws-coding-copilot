@@ -333,6 +333,12 @@ body {
     color: var(--text-primary);
 }
 
+/* Code language label */
+.code-language-label {
+    opacity: 0.6;
+    font-size: 0.85em;
+}
+
 /* Inline code */
 .message-content :not(pre) > code {
     background: var(--bg-primary);

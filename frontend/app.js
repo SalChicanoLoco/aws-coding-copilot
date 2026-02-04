@@ -38,29 +38,46 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Enhanced markdown formatting with better code block support
 function formatMessage(text) {
     let formatted = escapeHtml(text);
     
-    // Handle code blocks (```language\ncode\n```)
+    // Handle code blocks (```language\ncode\n```) FIRST to avoid formatting inside code
+    const codeBlocks = [];
     formatted = formatted.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
-        const langLabel = lang ? ` <span style="opacity: 0.6; font-size: 0.85em;">${lang}</span>` : '';
-        return `<pre><code>${langLabel}\n${code.trim()}</code></pre>`;
+        const langLabel = lang ? `<span class="code-language-label">${lang}</span>` : '';
+        const placeholder = `___CODEBLOCK_${codeBlocks.length}___`;
+        codeBlocks.push(`<pre><code>${langLabel}\n${code.trim()}</code></pre>`);
+        return placeholder;
     });
     
-    // Handle inline code (`code`)
-    formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+    // Handle inline code (`code`) BEFORE other formatting
+    const inlineCode = [];
+    formatted = formatted.replace(/`([^`]+)`/g, (match, code) => {
+        const placeholder = `___INLINECODE_${inlineCode.length}___`;
+        inlineCode.push(`<code>${code}</code>`);
+        return placeholder;
+    });
     
+    // Now handle bold and italic (they won't affect code anymore)
     // Handle bold (**text** or __text__)
     formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     formatted = formatted.replace(/__([^_]+)__/g, '<strong>$1</strong>');
     
-    // Handle italic (*text* or _text_)
+    // Handle italic (*text* - but not mid-word underscores)
     formatted = formatted.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-    formatted = formatted.replace(/_([^_]+)_/g, '<em>$1</em>');
     
     // Handle line breaks
     formatted = formatted.replace(/\n/g, '<br>');
+    
+    // Restore inline code
+    inlineCode.forEach((code, i) => {
+        formatted = formatted.replace(`___INLINECODE_${i}___`, code);
+    });
+    
+    // Restore code blocks
+    codeBlocks.forEach((block, i) => {
+        formatted = formatted.replace(`___CODEBLOCK_${i}___`, block);
+    });
     
     return formatted;
 }

@@ -14,8 +14,14 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# Get region
-REGION=$(grep 'region = ' backend/infrastructure/samconfig.toml | head -1 | sed 's/.*"\(.*\)".*/\1/' 2>/dev/null || echo "us-east-2")
+# Get region from samconfig.toml with better parsing
+REGION=$(grep -E "^region\s*=" backend/infrastructure/samconfig.toml | head -1 | sed -E 's/^region\s*=\s*['\''"]([^'\''"]+)['\''"].*$/\1/' 2>/dev/null || echo "us-east-2")
+
+# Validate extracted region
+if [[ ! "$REGION" =~ ^[a-z]{2}-[a-z]+-[0-9]{1}$ ]]; then
+    echo -e "${YELLOW}⚠️  Could not parse region from samconfig.toml, using default us-east-2${NC}"
+    REGION="us-east-2"
+fi
 STACK_NAME="prod-coding-copilot"
 
 echo "Testing deployment in region: $REGION"
