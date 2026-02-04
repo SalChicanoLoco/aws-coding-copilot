@@ -102,7 +102,7 @@ if [ ! -z "$ORPHANED" ]; then
         echo "Auto-deleting orphaned buckets (--yes flag)"
         DELETE_BUCKETS=true
     else
-        read -p "Delete these buckets? (Y/n) " -n 1 -r
+        read -p "Delete these buckets? (Y/n) " -r
         echo ""
         if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
             DELETE_BUCKETS=true

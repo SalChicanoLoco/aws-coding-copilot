@@ -75,7 +75,7 @@ if [ "$CLI_REGION" != "$SAM_REGION" ]; then
         echo "   Auto-updating samconfig.toml to use $CLI_REGION (--yes flag)"
         UPDATE_REGION=true
     else
-        read -p "   Update samconfig.toml to use $CLI_REGION? (Y/n) " -n 1 -r
+        read -p "   Update samconfig.toml to use $CLI_REGION? (Y/n) " -r
         echo ""
         if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
             UPDATE_REGION=true
@@ -114,7 +114,7 @@ if [ ! -z "$ORPHANED_BUCKETS" ]; then
         echo "   Auto-deleting orphaned buckets (--yes flag)"
         DELETE_BUCKETS=true
     else
-        read -p "   Delete these buckets? (Y/n) " -n 1 -r
+        read -p "   Delete these buckets? (Y/n) " -r
         echo ""
         if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
             DELETE_BUCKETS=true
@@ -200,7 +200,7 @@ if aws ssm get-parameter --name /prod/anthropic-api-key --region $SAM_REGION &>/
             if [ "$SKIP_PROMPTS" = true ]; then
                 echo "   Continuing with deployment anyway (--yes flag)"
             else
-                read -p "Continue with deployment anyway? (y/N) " -n 1 -r
+                read -p "Continue with deployment anyway? (y/N) " -r
                 echo ""
                 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
                     exit 1
@@ -230,7 +230,7 @@ else
         echo "   Skipping API key requirement (--yes flag)"
         echo "   Deployment will work but Lambda will fail at runtime"
     else
-        read -p "Continue without API key? (Deployment will work but Lambda will fail at runtime) (y/N) " -n 1 -r
+        read -p "Continue without API key? (Deployment will work but Lambda will fail at runtime) (y/N) " -r
         echo ""
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             exit 1
