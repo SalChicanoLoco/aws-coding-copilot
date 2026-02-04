@@ -10,6 +10,9 @@ const API_ENDPOINT = 'YOUR_API_ENDPOINT_HERE';
 // Set this to true to force demo mode even with a configured API
 const DEMO_MODE = API_ENDPOINT.includes('YOUR_API_ENDPOINT_HERE');
 
+// Demo mode simulated delay (in milliseconds) to mimic real API response time
+const DEMO_MODE_DELAY_MS = 800;
+
 // ============================================
 // NOTES ON SSL/CERTIFICATES
 // ============================================
@@ -242,7 +245,7 @@ async function sendMessage() {
         // Check if in demo mode (API not configured)
         if (DEMO_MODE) {
             // Simulate API delay
-            await new Promise(resolve => setTimeout(resolve, 800));
+            await new Promise(resolve => setTimeout(resolve, DEMO_MODE_DELAY_MS));
             
             // Generate demo response
             const demoResponse = generateDemoResponse(message);
@@ -292,9 +295,7 @@ async function sendMessage() {
         if (error.message && (
             error.message.includes('SSL') || 
             error.message.includes('certificate') || 
-            error.message.includes('CERT') ||
-            error.message.includes('ERR_CERT') ||
-            error.message.includes('NET::ERR_CERT')
+            error.message.includes('CERT')
         )) {
             errorMessage = `SSL Certificate Error: ${error.message}\n\n` +
                           `This usually means:\n` +
