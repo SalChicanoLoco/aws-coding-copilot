@@ -1,6 +1,5 @@
-# SAM build artifacts
-.aws-sam/
-samconfig.toml
+# Test files (temporary)
+backend/lambda/test_cors.py
 
 # Python
 __pycache__/
@@ -24,30 +23,23 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual environments
-venv/
-ENV/
-env/
+# SAM
+.aws-sam/
+samconfig.toml
 
-# IDEs
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+
+# OS
 .DS_Store
-
-# Logs
-*.log
-
-# Environment variables
-.env
-.env.local
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-
-# OS files
 Thumbs.db
+
+# Env
+.env
+.venv
+env/
+venv/
