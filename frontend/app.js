@@ -3,7 +3,8 @@
 // ============================================
 // Replace this with your actual API Gateway endpoint after deployment
 // Example: https://abc123def4.execute-api.us-east-1.amazonaws.com/prod/chat
-const API_ENDPOINT = 'YOUR_API_ENDPOINT_HERE/chat';
+// This will be automatically replaced during deployment by deploy.sh
+const API_ENDPOINT = 'YOUR_API_ENDPOINT_HERE';
 
 // ============================================
 // GLOBAL STATE

@@ -78,7 +78,7 @@ echo ""
 echo "✓ Step 5/6: Updating frontend configuration..."
 cd ../../frontend
 # Replace placeholder with actual API endpoint
-sed -i.bak "s|YOUR_API_ENDPOINT_HERE/chat|$API_ENDPOINT|g" app.js
+sed -i.bak "s|YOUR_API_ENDPOINT_HERE|$API_ENDPOINT|g" app.js
 rm -f app.js.bak
 echo "   ✓ API endpoint configured in frontend"
 echo ""
