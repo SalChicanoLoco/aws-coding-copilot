@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test API Validation</title>
+</head>
+<body>
+    <h1>Testing API Endpoint Validation</h1>
+    <div id="results"></div>
+    
+    <script>
+        const results = document.getElementById('results');
+        
+        // Test 1: With placeholder
+        const API_ENDPOINT_TEST1 = 'YOUR_API_ENDPOINT_HERE';
+        const shouldShowError1 = API_ENDPOINT_TEST1.includes('YOUR_API_ENDPOINT_HERE');
+        results.innerHTML += '<p>Test 1 (Placeholder): ' + (shouldShowError1 ? 'PASS - Shows error as expected' : 'FAIL - Should show error') + '</p>';
+        
+        // Test 2: With real endpoint
+        const API_ENDPOINT_TEST2 = 'https://b4hr42bhaj.execute-api.us-east-1.amazonaws.com/prod';
+        const shouldShowError2 = API_ENDPOINT_TEST2.includes('YOUR_API_ENDPOINT_HERE');
+        results.innerHTML += '<p>Test 2 (Real endpoint): ' + (!shouldShowError2 ? 'PASS - No error as expected' : 'FAIL - Should NOT show error') + '</p>';
+        
+        // Test 3: What the problem statement says is wrong
+        const shouldShowError3 = API_ENDPOINT_TEST2.includes('https://b4hr42bhaj.execute-api.us-east-1.amazonaws.com/prod');
+        results.innerHTML += '<p>Test 3 (Problem statement "broken" logic): ' + (shouldShowError3 ? 'This WOULD show error wrongly' : 'This would work') + '</p>';
+    </script>
+</body>
+</html>
