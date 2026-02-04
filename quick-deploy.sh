@@ -1,11 +1,32 @@
 #!/bin/bash
 # Simple one-command deployment script
-# Run this after merging the PR: ./quick-deploy.sh
+# Run this after merging the PR: ./quick-deploy.sh [--yes]
 
 set -e
 
+# Parse command line arguments
+AUTO_APPROVE=false
+for arg in "$@"; do
+    if [[ "$arg" == "--yes" || "$arg" == "-y" ]]; then
+        AUTO_APPROVE=true
+    elif [[ "$arg" == "--help" || "$arg" == "-h" ]]; then
+        echo "Usage: $0 [OPTIONS]"
+        echo ""
+        echo "Quick deployment script"
+        echo ""
+        echo "Options:"
+        echo "  --yes, -y    Skip all interactive prompts (auto-accept defaults)"
+        echo "  --help, -h   Show this help message"
+        echo ""
+        exit 0
+    fi
+done
+
 echo "🚀 Quick Deploy - CORS Fix"
 echo "================================"
+if [ "$AUTO_APPROVE" = true ]; then
+    echo "  (Running with --yes flag)"
+fi
 echo ""
 
 # Check we're in the right place
@@ -26,7 +47,11 @@ sam build --region "$REGION"
 
 # Deploy
 echo "📦 Deploying to AWS..."
-sam deploy --region "$REGION" --no-confirm-changeset
+if [ "$AUTO_APPROVE" = true ]; then
+    sam deploy --region "$REGION" --no-confirm-changeset
+else
+    sam deploy --region "$REGION" --no-confirm-changeset
+fi
 
 # Get endpoints
 echo ""

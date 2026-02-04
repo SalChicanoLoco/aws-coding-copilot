@@ -1,12 +1,33 @@
 #!/bin/bash
 set -e  # Exit on any error
 
+# Parse command line arguments
+AUTO_APPROVE=false
+for arg in "$@"; do
+    if [[ "$arg" == "--yes" || "$arg" == "-y" ]]; then
+        AUTO_APPROVE=true
+    elif [[ "$arg" == "--help" || "$arg" == "-h" ]]; then
+        echo "Usage: $0 [OPTIONS]"
+        echo ""
+        echo "Automated deployment script for AWS Coding Copilot"
+        echo ""
+        echo "Options:"
+        echo "  --yes, -y    Skip all interactive prompts (auto-accept defaults)"
+        echo "  --help, -h   Show this help message"
+        echo ""
+        exit 0
+    fi
+done
+
 REGION="us-east-2"
 STACK_NAME="prod-coding-copilot"
 
 echo "=========================================="
 echo "AWS Coding Copilot - Automated Deployment"
 echo "=========================================="
+if [ "$AUTO_APPROVE" = true ]; then
+    echo "  (Running with --yes flag)"
+fi
 echo ""
 
 # Step 1: Validate prerequisites
@@ -22,46 +43,31 @@ if ! command -v sam &> /dev/null; then
 fi
 
 # Check API key exists
-echo "🔑 Checking Anthropic API key..."
-if ! aws ssm get-parameter --name /prod/anthropic-api-key --region $REGION --with-decryption &> /dev/null; then
-    echo "❌ Anthropic API key not found in SSM Parameter Store."
-    echo "   Run: aws ssm put-parameter --name /prod/anthropic-api-key --value 'YOUR_KEY' --type SecureString --region $REGION"
-    exit 1
-fi
-echo "   ✓ API key found in SSM"
-
-# Test the API key
-echo "🧪 Testing API key validity..."
-API_KEY=$(aws ssm get-parameter --name /prod/anthropic-api-key --region $REGION --with-decryption --query 'Parameter.Value' --output text 2>/dev/null)
-
-if [ ! -z "$API_KEY" ]; then
-    TEST_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST https://api.anthropic.com/v1/messages \
-        -H "x-api-key: $API_KEY" \
-        -H "anthropic-version: 2023-06-01" \
-        -H "content-type: application/json" \
-        -d '{
-            "model": "claude-3-haiku-20240307",
-            "max_tokens": 10,
-            "messages": [{"role": "user", "content": "test"}]
-        }' 2>&1)
-    
-    HTTP_CODE=$(echo "$TEST_RESPONSE" | tail -1)
-    RESPONSE_BODY=$(echo "$TEST_RESPONSE" | sed '$d')
-    
-    if [ "$HTTP_CODE" = "200" ]; then
-        echo "   ✓ API key is valid and working"
-    elif [ "$HTTP_CODE" = "401" ]; then
-        echo "❌ API key is invalid or expired"
-        echo "   Please update: aws ssm put-parameter --name /prod/anthropic-api-key --value 'sk-ant-...' --type SecureString --region $REGION --overwrite"
+echo "🔑 Checking AWS Bedrock access..."
+if ! aws bedrock list-foundation-models --region $REGION &> /dev/null; then
+    echo "⚠️  Cannot access AWS Bedrock. This may mean:"
+    echo "   1. Bedrock is not available in region $REGION"
+    echo "   2. Your AWS account doesn't have Bedrock enabled"
+    echo "   3. You need to request model access"
+    echo ""
+    echo "   To enable Bedrock:"
+    echo "   1. Go to: https://console.aws.amazon.com/bedrock"
+    echo "   2. Click 'Model access' in the left sidebar"
+    echo "   3. Request access to 'Claude 3 Haiku' model"
+    echo ""
+    read -p "Continue anyway? (y/N) " -r
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         exit 1
-    elif echo "$RESPONSE_BODY" | grep -q "credit balance is too low"; then
-        echo "⚠️  WARNING: Anthropic account has insufficient credits"
-        echo "   Add credits at: https://console.anthropic.com/settings/billing"
-        echo "   Deployment will continue, but API calls will fail until credits are added."
-    elif [ "$HTTP_CODE" = "429" ]; then
-        echo "   ⚠️  Rate limit reached, but key appears valid"
+    fi
+else
+    echo "   ✓ AWS Bedrock is accessible"
+    
+    # Check if Claude model is available
+    if aws bedrock list-foundation-models --region $REGION --query 'modelSummaries[?contains(modelId, `anthropic.claude-3-haiku`)]' --output text 2>/dev/null | grep -q "anthropic"; then
+        echo "   ✓ Claude 3 Haiku model is available"
     else
-        echo "   ⚠️  Could not fully validate API key (HTTP $HTTP_CODE)"
+        echo "   ⚠️  Claude 3 Haiku may not be enabled"
+        echo "   Request access at: https://console.aws.amazon.com/bedrock"
     fi
 fi
 
@@ -79,10 +85,19 @@ echo ""
 # Step 3: Deploy backend
 echo "✓ Step 3/6: Deploying backend infrastructure..."
 if [ ! -f samconfig.toml ]; then
-    echo "   First deployment - running guided setup..."
-    sam deploy --guided --region $REGION
+    if [ "$AUTO_APPROVE" = true ]; then
+        echo "   First deployment with auto-approve - using defaults..."
+        sam deploy --no-confirm-changeset --region $REGION
+    else
+        echo "   First deployment - running guided setup..."
+        sam deploy --guided --region $REGION
+    fi
 else
-    sam deploy --region $REGION
+    if [ "$AUTO_APPROVE" = true ]; then
+        sam deploy --no-confirm-changeset --region $REGION
+    else
+        sam deploy --region $REGION
+    fi
 fi
 echo ""
 

@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Cloud9 IDE for AWS Coding Copilot development with automated setup'
+
+Parameters:
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet for Cloud9 instance (must be in a VPC with internet access)
+  
+  EnvironmentName:
+    Type: String
+    Default: coding-copilot-dev
+    Description: Name for the Cloud9 environment
+
+Resources:
+  Cloud9Environment:
+    Type: AWS::Cloud9::EnvironmentEC2
+    Properties:
+      Name: !Ref EnvironmentName
+      Description: Automated development environment for AWS Coding Copilot with pre-installed dependencies
+      InstanceType: t3.medium
+      AutomaticStopTimeMinutes: 30
+      SubnetId: !Ref SubnetId
+      ImageId: amazonlinux-2-x86_64
+      ConnectionType: CONNECT_SSH
+      OwnerArn: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+      Tags:
+        - Key: Project
+          Value: aws-coding-copilot
+        - Key: Environment
+          Value: development
+        - Key: ManagedBy
+          Value: CloudFormation
+
+Outputs:
+  Cloud9EnvironmentId:
+    Description: Cloud9 Environment ID
+    Value: !Ref Cloud9Environment
+    Export:
+      Name: !Sub '${AWS::StackName}-EnvironmentId'
+  
+  Cloud9URL:
+    Description: URL to access the Cloud9 IDE
+    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/cloud9/ide/${Cloud9Environment}'
+  
+  SetupInstructions:
+    Description: Next steps to set up the environment
+    Value: |
+      1. Open the Cloud9 URL above
+      2. In the Cloud9 terminal, run: bash /home/ec2-user/environment/.cloud9/setup.sh
+      3. Wait for the setup to complete
+      4. Your environment will be ready to use!
