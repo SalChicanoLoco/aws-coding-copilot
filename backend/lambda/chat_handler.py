@@ -38,29 +38,36 @@ def get_cors_headers():
     return {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Amz-Date, X-Api-Key',
+        'Access-Control-Allow-Headers': 'Content-Type',
         'Content-Type': 'application/json'
+    }
+
+
+def create_response(status_code, body):
+    """Create a standardized response with CORS headers.
+    
+    Args:
+        status_code: HTTP status code
+        body: Response body (will be JSON serialized)
+    
+    Returns:
+        dict: API Gateway response with CORS headers
+    """
+    return {
+        'statusCode': status_code,
+        'headers': get_cors_headers(),
+        'body': json.dumps(body)
     }
 
 
 def error_response(message, status_code=400):
     """Return standardized error response."""
-    return {
-        'statusCode': status_code,
-        'headers': get_cors_headers(),
-        'body': json.dumps({
-            'error': message
-        })
-    }
+    return create_response(status_code, {'error': message})
 
 
 def success_response(data):
     """Return standardized success response."""
-    return {
-        'statusCode': 200,
-        'headers': get_cors_headers(),
-        'body': json.dumps(data)
-    }
+    return create_response(200, data)
 
 
 # ============================================
