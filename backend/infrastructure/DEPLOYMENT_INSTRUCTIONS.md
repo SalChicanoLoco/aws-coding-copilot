@@ -9,8 +9,10 @@
 
 ### Step 1: Navigate to infrastructure directory
 ```bash
-cd ~/aws-coding-copilot/backend/infrastructure
+cd backend/infrastructure
 ```
+
+(From your repository root directory)
 
 ### Step 2: Build with Docker
 ```bash
@@ -71,9 +73,11 @@ Wait for deletion to complete, then redeploy.
 After code changes:
 
 ```bash
-cd ~/aws-coding-copilot/backend/infrastructure
+cd backend/infrastructure
 sam build --use-container
 sam deploy
 ```
+
+(Run from your repository root directory)
 
 No additional flags needed - `samconfig.toml` handles everything.
