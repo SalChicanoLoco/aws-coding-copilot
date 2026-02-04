@@ -103,7 +103,7 @@ Resources:
       Cors:
         AllowOrigin: "'*'"
         AllowMethods: "'POST, OPTIONS'"
-        AllowHeaders: "'Content-Type'"
+        AllowHeaders: "'Content-Type, Authorization'"
         MaxAge: "'600'"
       Tags:
         Environment: !Ref Environment
