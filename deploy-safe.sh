@@ -138,8 +138,8 @@ echo "========================================"
 echo ""
 cd backend/infrastructure
 
-echo "Building..."
-if ! sam build --use-container; then
+echo "Building Lambda container image..."
+if ! sam build; then
     echo -e "${RED}❌ Build failed${NC}"
     exit 1
 fi

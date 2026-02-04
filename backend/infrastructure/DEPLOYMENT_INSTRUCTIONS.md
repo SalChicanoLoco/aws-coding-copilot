@@ -37,12 +37,14 @@ cd backend/infrastructure
 
 (From your repository root directory)
 
-### Step 2: Build with Docker
+### Step 2: Build Lambda Container Image
 ```bash
-sam build --use-container
+sam build
 ```
 
-This uses Docker to build with Python 3.12 (Lambda's runtime), avoiding local Python version issues.
+This builds a Docker container image for the Lambda function using the `Dockerfile` in `backend/lambda/`.
+
+**Note**: SAM will automatically use Docker to build the container image. No `--use-container` flag needed since we're deploying as a container image (PackageType: Image).
 
 ### Step 3: Deploy
 ```bash
@@ -74,9 +76,11 @@ aws s3 rb s3://BUCKET-NAME --force
 3. Retry deployment
 
 ### "Binary validation failed for python"
-This means your local Python version doesn't match Lambda's runtime (3.12).
+This error should not occur anymore since we're using container image deployment.
 
-**Solution**: Always use `sam build --use-container`
+**Previous Issue**: Local Python version didn't match Lambda's runtime (3.12).
+
+**Current Solution**: The Lambda function is deployed as a container image built from `backend/lambda/Dockerfile`, which uses the official AWS Lambda Python 3.12 base image. This ensures perfect consistency with the Lambda runtime environment.
 
 ### Stack Status Check
 ```bash
@@ -97,10 +101,10 @@ After code changes:
 
 ```bash
 cd backend/infrastructure
-sam build --use-container
+sam build
 sam deploy
 ```
 
 (Run from your repository root directory)
 
-No additional flags needed - `samconfig.toml` handles everything.
+Since we're using container image deployment, SAM will rebuild the Docker image with your changes. No additional flags needed - `samconfig.toml` handles everything.

@@ -10,6 +10,7 @@ AWS Coding Copilot is a production-ready AI coding assistant that helps develope
 - **Multi-Language Support**: Python, Node.js, and other AWS SDK languages
 - **Conversation History**: Maintains context across questions (30-day retention)
 - **Fast & Scalable**: Serverless architecture with pay-per-use pricing
+- **Container-Native**: Lambda deployed as container image for consistency and flexibility
 - **Secure**: API keys stored in SSM Parameter Store, encrypted at rest
 - **Cost-Effective**: < $5/month for light usage (excluding Anthropic API costs)
 
@@ -41,7 +42,8 @@ AWS Coding Copilot is a production-ready AI coding assistant that helps develope
 │  ┌───────────────┐      ┌──────────────┐           │           │
 │  │  API Gateway  │──────│    Lambda    │───────────┘           │
 │  │   REST API    │      │   Function   │                        │
-│  └───────────────┘      │ (Python 3.12)│                        │
+│  └───────────────┘      │ (Container)  │                        │
+│                          │ Python 3.12  │                        │
 │                          └──────┬───────┘                        │
 │                                 │                                │
 │                                 ▼                                │
@@ -92,7 +94,7 @@ That's it! 🚀
 - ✅ Detects and fixes region mismatches automatically
 - ✅ Checks for and cleans up orphaned resources
 - ✅ Validates Anthropic API key exists
-- ✅ Builds Lambda function with Docker
+- ✅ Builds Lambda container image with Docker
 - ✅ Deploys infrastructure to AWS
 - ✅ Automatically configures the frontend with API endpoint
 - ✅ Uploads frontend to S3
@@ -144,12 +146,12 @@ aws-coding-copilot/
 ├── backend/
 │   ├── lambda/
 │   │   ├── chat_handler.py # Lambda function
-│   │   └── requirements.txt # Python dependencies
+│   │   ├── requirements.txt # Python dependencies
+│   │   └── Dockerfile      # Lambda container image
 │   └── infrastructure/
 │       └── template.yaml    # SAM template
-├── deploy.sh               # Automated deployment script
-├── validate.sh             # Prerequisites validation
-├── simulate-deploy.sh      # Dry-run deployment
+├── deploy-safe.sh          # Safe deployment script
+├── validate-self.sh        # Deployment validation
 ├── DEPLOYMENT.md           # Detailed deployment guide
 └── README.md               # This file
 ```
@@ -259,6 +261,13 @@ aws s3 rb s3://BUCKET-NAME --force --region us-east-2
 **"Docker is not running"**
 - Start Docker Desktop and wait for it to fully start
 - Verify with: `docker info`
+- **Note**: Docker is required for container image deployment. The Lambda function is packaged as a Docker container for better consistency and flexibility.
+
+**"Image build failed"**
+- Ensure Docker has enough disk space
+- Check that the Dockerfile in `backend/lambda/` is valid
+- Verify Python dependencies in `requirements.txt` are installable
+- Run `sam build` manually to see detailed error messages
 
 **CORS errors in browser**
 - Check API Gateway CORS configuration
