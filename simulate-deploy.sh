@@ -1,0 +1,306 @@
+#!/bin/bash
+
+# ============================================
+# AWS Coding Copilot - Simulate Deployment
+# ============================================
+# This script performs a dry-run deployment simulation
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+STACK_NAME="aws-coding-copilot"
+REGION="us-east-1"
+
+print_header() {
+    echo -e "\n${BLUE}========================================${NC}"
+    echo -e "${BLUE}$1${NC}"
+    echo -e "${BLUE}========================================${NC}\n"
+}
+
+print_success() {
+    echo -e "${GREEN}✓ $1${NC}"
+}
+
+print_error() {
+    echo -e "${RED}✗ $1${NC}"
+}
+
+print_info() {
+    echo -e "${YELLOW}ℹ $1${NC}"
+}
+
+print_step() {
+    echo -e "${BLUE}→ $1${NC}"
+}
+
+# ============================================
+# INTRODUCTION
+# ============================================
+
+print_header "AWS Coding Copilot - Deployment Simulation"
+
+echo "This script simulates the deployment process without making any changes to AWS."
+echo "It validates your configuration and shows what would happen during deployment."
+echo ""
+
+# ============================================
+# STEP 1: VALIDATE PREREQUISITES
+# ============================================
+
+print_header "Step 1: Validate Prerequisites"
+
+print_step "Checking AWS CLI..."
+if command -v aws &> /dev/null; then
+    print_success "AWS CLI is installed"
+else
+    print_error "AWS CLI not found"
+    exit 1
+fi
+
+print_step "Checking SAM CLI..."
+if command -v sam &> /dev/null; then
+    print_success "SAM CLI is installed"
+else
+    print_error "SAM CLI not found"
+    exit 1
+fi
+
+print_step "Checking AWS credentials..."
+if aws sts get-caller-identity --region $REGION &> /dev/null; then
+    ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --region $REGION)
+    print_success "AWS credentials configured (Account: $ACCOUNT_ID)"
+else
+    print_error "AWS credentials not configured"
+    exit 1
+fi
+
+print_step "Checking for Anthropic API key in SSM..."
+if aws ssm get-parameter --name /prod/anthropic-api-key --region $REGION &> /dev/null; then
+    print_success "Anthropic API key found"
+else
+    print_error "Anthropic API key not found in SSM Parameter Store"
+    echo "  Run: aws ssm put-parameter --name /prod/anthropic-api-key --value \"YOUR_KEY\" --type SecureString --region $REGION"
+    exit 1
+fi
+
+# ============================================
+# STEP 2: VALIDATE SAM TEMPLATE
+# ============================================
+
+print_header "Step 2: Validate SAM Template"
+
+print_step "Validating template syntax..."
+cd backend/infrastructure
+
+if sam validate --region $REGION &> /dev/null; then
+    print_success "SAM template is valid"
+else
+    print_error "SAM template validation failed"
+    sam validate --region $REGION
+    exit 1
+fi
+
+# ============================================
+# STEP 3: SIMULATE BUILD
+# ============================================
+
+print_header "Step 3: Simulate Build Process"
+
+print_step "Running sam build..."
+if sam build &> /dev/null; then
+    print_success "SAM build successful"
+    
+    # Show what was built
+    echo ""
+    print_info "Built artifacts:"
+    if [ -d ".aws-sam/build/CodingCopilotFunction" ]; then
+        echo "  - Lambda function: CodingCopilotFunction"
+        echo "    Handler: chat_handler.lambda_handler"
+        echo "    Runtime: python3.13"
+        echo "    Dependencies:"
+        if [ -f ".aws-sam/build/CodingCopilotFunction/requirements.txt" ]; then
+            cat .aws-sam/build/CodingCopilotFunction/requirements.txt | sed 's/^/      /'
+        fi
+    fi
+else
+    print_error "SAM build failed"
+    exit 1
+fi
+
+cd ../..
+
+# ============================================
+# STEP 4: SHOW WHAT WOULD BE CREATED
+# ============================================
+
+print_header "Step 4: Resources That Would Be Created"
+
+echo "The following AWS resources would be created/updated:"
+echo ""
+
+print_info "DynamoDB Table:"
+echo "  - Name: prod-coding-copilot-conversations"
+echo "  - Billing: PAY_PER_REQUEST"
+echo "  - TTL: Enabled (30 days)"
+echo "  - Keys: conversationId (HASH), timestamp (RANGE)"
+echo ""
+
+print_info "Lambda Function:"
+echo "  - Name: prod-coding-copilot-chat"
+echo "  - Runtime: python3.13"
+echo "  - Memory: 512 MB"
+echo "  - Timeout: 30 seconds"
+echo "  - Environment Variables:"
+echo "    - CONVERSATIONS_TABLE: prod-coding-copilot-conversations"
+echo "    - ANTHROPIC_API_KEY_PARAM: /prod/anthropic-api-key"
+echo ""
+
+print_info "API Gateway:"
+echo "  - Name: prod-coding-copilot-api"
+echo "  - Stage: prod"
+echo "  - CORS: Enabled (*)"
+echo "  - Endpoints:"
+echo "    - POST /chat"
+echo "    - OPTIONS /chat"
+echo ""
+
+print_info "S3 Bucket:"
+echo "  - Name: prod-coding-copilot-{account-id}"
+echo "  - Website Hosting: Enabled"
+echo "  - Public Access: Enabled"
+echo ""
+
+print_info "CloudFront Distribution:"
+echo "  - Origin: S3 Bucket"
+echo "  - HTTPS: Enabled (redirect)"
+echo "  - Price Class: 100 (North America & Europe)"
+echo ""
+
+# ============================================
+# STEP 5: ESTIMATE COSTS
+# ============================================
+
+print_header "Step 5: Estimated Monthly Costs"
+
+echo "Based on light usage (< 1000 requests/month):"
+echo ""
+echo "  Lambda:        < \$0.50"
+echo "  API Gateway:   < \$1.00"
+echo "  DynamoDB:      < \$0.50"
+echo "  S3:            < \$0.50"
+echo "  CloudFront:    < \$1.00"
+echo "  ────────────────────────"
+echo "  Total AWS:     < \$5.00/month"
+echo ""
+echo "  (Excludes Anthropic API costs)"
+echo ""
+
+# ============================================
+# STEP 6: CHECK EXISTING STACK
+# ============================================
+
+print_header "Step 6: Check for Existing Deployment"
+
+if aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION &> /dev/null; then
+    STACK_STATUS=$(aws cloudformation describe-stacks \
+        --stack-name $STACK_NAME \
+        --query 'Stacks[0].StackStatus' \
+        --output text \
+        --region $REGION)
+    
+    print_info "Existing stack found: $STACK_NAME"
+    echo "  Status: $STACK_STATUS"
+    echo ""
+    echo "Deployment would UPDATE the existing stack."
+    
+    # Show current outputs
+    echo ""
+    print_info "Current stack outputs:"
+    aws cloudformation describe-stacks \
+        --stack-name $STACK_NAME \
+        --query 'Stacks[0].Outputs[*].[OutputKey,OutputValue]' \
+        --output table \
+        --region $REGION
+else
+    print_info "No existing stack found"
+    echo "Deployment would CREATE a new stack."
+fi
+
+# ============================================
+# STEP 7: DEPLOYMENT TIMELINE
+# ============================================
+
+print_header "Step 7: Estimated Deployment Timeline"
+
+echo "Deployment would proceed as follows:"
+echo ""
+echo "  1. Build Lambda artifacts:             ~30 seconds"
+echo "  2. Create/Update CloudFormation stack: ~2-3 minutes"
+echo "     - DynamoDB Table:                   ~30 seconds"
+echo "     - Lambda Function:                  ~30 seconds"
+echo "     - API Gateway:                      ~30 seconds"
+echo "     - S3 Bucket:                        ~10 seconds"
+echo "     - CloudFront Distribution:          ~5-10 minutes"
+echo "  3. Upload frontend to S3:              ~5 seconds"
+echo "  4. Invalidate CloudFront cache:        ~2-5 minutes"
+echo "  ────────────────────────────────────────────────"
+echo "  Total time:                            ~10-15 minutes"
+echo ""
+
+# ============================================
+# STEP 8: NEXT STEPS
+# ============================================
+
+print_header "Step 8: Next Steps"
+
+echo "To perform the actual deployment:"
+echo ""
+echo -e "  ${GREEN}./deploy.sh${NC}"
+echo ""
+echo "Or deploy manually:"
+echo ""
+echo "  cd backend/infrastructure"
+echo "  sam build"
+echo "  sam deploy --guided"
+echo ""
+
+# ============================================
+# ROLLBACK PLAN
+# ============================================
+
+print_header "Rollback Plan"
+
+echo "If deployment fails or you want to remove everything:"
+echo ""
+echo "  1. Delete the CloudFormation stack:"
+echo "     aws cloudformation delete-stack --stack-name $STACK_NAME --region $REGION"
+echo ""
+echo "  2. If S3 bucket deletion fails (non-empty):"
+echo "     BUCKET=\$(aws cloudformation describe-stacks --stack-name $STACK_NAME \\"
+echo "       --query 'Stacks[0].Outputs[?OutputKey==\`FrontendBucketName\`].OutputValue' \\"
+echo "       --output text --region $REGION)"
+echo "     aws s3 rm s3://\$BUCKET/ --recursive --region $REGION"
+echo "     aws cloudformation delete-stack --stack-name $STACK_NAME --region $REGION"
+echo ""
+
+# ============================================
+# SUMMARY
+# ============================================
+
+print_header "Simulation Complete"
+
+echo -e "${GREEN}✓ All validations passed${NC}"
+echo -e "${GREEN}✓ Template is valid${NC}"
+echo -e "${GREEN}✓ Build successful${NC}"
+echo -e "${GREEN}✓ Prerequisites met${NC}"
+echo ""
+echo -e "${BLUE}You are ready to deploy!${NC}"
+echo ""
+echo "Run ${GREEN}./deploy.sh${NC} to start the deployment."
+echo ""

@@ -1,0 +1,260 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AWS Coding Copilot - AI-powered AWS development assistant
+
+# ============================================
+# PARAMETERS
+# ============================================
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues:
+      - dev
+      - prod
+    Description: Environment name
+  
+  FrontendBucketName:
+    Type: String
+    Default: ''
+    Description: Optional custom bucket name for frontend (leave empty for auto-generated)
+
+# ============================================
+# GLOBALS
+# ============================================
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 30
+    MemorySize: 512
+
+# ============================================
+# RESOURCES
+# ============================================
+Resources:
+  # DynamoDB Table for Conversations
+  ConversationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${Environment}-coding-copilot-conversations'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: conversationId
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: conversationId
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: AWS-Coding-Copilot
+
+  # Lambda Function
+  CodingCopilotFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${Environment}-coding-copilot-chat'
+      CodeUri: ../lambda/
+      Handler: chat_handler.lambda_handler
+      Description: Chat handler for AWS Coding Copilot
+      Environment:
+        Variables:
+          CONVERSATIONS_TABLE: !Ref ConversationsTable
+          ANTHROPIC_API_KEY_PARAM: /prod/anthropic-api-key
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConversationsTable
+        - Statement:
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter
+            Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/prod/anthropic-api-key'
+      Events:
+        ChatApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CopilotApi
+            Path: /chat
+            Method: POST
+        ChatOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CopilotApi
+            Path: /chat
+            Method: OPTIONS
+      Tags:
+        Environment: !Ref Environment
+        Application: AWS-Coding-Copilot
+
+  # API Gateway
+  CopilotApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub '${Environment}-coding-copilot-api'
+      StageName: !Ref Environment
+      Cors:
+        AllowOrigin: "'*'"
+        AllowMethods: "'POST, OPTIONS'"
+        AllowHeaders: "'Content-Type, Authorization, X-Amz-Date, X-Api-Key'"
+        MaxAge: "'600'"
+      Tags:
+        Environment: !Ref Environment
+        Application: AWS-Coding-Copilot
+
+  # S3 Bucket for Frontend
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !If
+        - HasCustomBucketName
+        - !Ref FrontendBucketName
+        - !Sub '${Environment}-coding-copilot-${AWS::AccountId}'
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: AWS-Coding-Copilot
+
+  # S3 Bucket Policy for Public Read Access
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub '${FrontendBucket.Arn}/*'
+
+  # CloudFront Distribution
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub 'CloudFront distribution for ${Environment} AWS Coding Copilot'
+        DefaultRootObject: index.html
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: http-only
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+          Compress: true
+          DefaultTTL: 86400
+          MaxTTL: 31536000
+          MinTTL: 0
+        CustomErrorResponses:
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 300
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 300
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: AWS-Coding-Copilot
+
+# ============================================
+# CONDITIONS
+# ============================================
+Conditions:
+  HasCustomBucketName: !Not [!Equals [!Ref FrontendBucketName, '']]
+
+# ============================================
+# OUTPUTS
+# ============================================
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${CopilotApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Export:
+      Name: !Sub '${Environment}-CodingCopilot-ApiEndpoint'
+
+  ChatEndpoint:
+    Description: Full chat endpoint URL
+    Value: !Sub 'https://${CopilotApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/chat'
+    Export:
+      Name: !Sub '${Environment}-CodingCopilot-ChatEndpoint'
+
+  FrontendBucketName:
+    Description: S3 bucket name for frontend
+    Value: !Ref FrontendBucket
+    Export:
+      Name: !Sub '${Environment}-CodingCopilot-FrontendBucket'
+
+  FrontendBucketWebsiteURL:
+    Description: S3 website URL
+    Value: !GetAtt FrontendBucket.WebsiteURL
+    Export:
+      Name: !Sub '${Environment}-CodingCopilot-FrontendURL'
+
+  CloudFrontDistributionId:
+    Description: CloudFront Distribution ID
+    Value: !Ref CloudFrontDistribution
+    Export:
+      Name: !Sub '${Environment}-CodingCopilot-CloudFrontDistributionId'
+
+  CloudFrontDistributionDomainName:
+    Description: CloudFront Distribution Domain Name
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub '${Environment}-CodingCopilot-CloudFrontDomain'
+
+  FrontendURL:
+    Description: Frontend URL (CloudFront)
+    Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
+    Export:
+      Name: !Sub '${Environment}-CodingCopilot-URL'
+
+  ConversationsTableName:
+    Description: DynamoDB table name for conversations
+    Value: !Ref ConversationsTable
+    Export:
+      Name: !Sub '${Environment}-CodingCopilot-ConversationsTable'
+
+  LambdaFunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt CodingCopilotFunction.Arn
+    Export:
+      Name: !Sub '${Environment}-CodingCopilot-LambdaArn'

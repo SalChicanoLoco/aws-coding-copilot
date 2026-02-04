@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Coding Copilot</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 AWS Coding Copilot</h1>
+            <p class="subtitle">Your AI assistant for AWS development</p>
+        </header>
+
+        <div class="chat-container">
+            <div id="conversation" class="conversation">
+                <div class="welcome-message">
+                    <h2>Welcome to AWS Coding Copilot!</h2>
+                    <p>I can help you with:</p>
+                    <ul>
+                        <li>Writing AWS Lambda functions (Python, Node.js)</li>
+                        <li>Creating SAM and CloudFormation templates</li>
+                        <li>AWS SDK code examples (boto3, AWS SDK for JavaScript)</li>
+                        <li>Deployment troubleshooting</li>
+                        <li>Cost optimization strategies</li>
+                        <li>AWS best practices</li>
+                    </ul>
+                    <p class="prompt-hint">Try asking: "Generate a Python Lambda function that processes S3 events"</p>
+                </div>
+            </div>
+
+            <div class="input-container">
+                <textarea 
+                    id="userInput" 
+                    placeholder="Ask me about AWS development..."
+                    rows="3"
+                ></textarea>
+                <button id="sendButton" onclick="sendMessage()">
+                    <span id="buttonText">Send</span>
+                    <span id="buttonSpinner" class="spinner" style="display: none;"></span>
+                </button>
+            </div>
+        </div>
+
+        <footer>
+            <p class="info">Powered by Anthropic Claude | Data stored in DynamoDB with 30-day TTL</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
