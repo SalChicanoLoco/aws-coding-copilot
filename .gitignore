@@ -1,6 +1,10 @@
 # Test files (temporary)
 backend/lambda/test_cors.py
 
+# Config backups and temporary files
+backend/infrastructure/samconfig.toml.bak
+frontend/app.js.bak
+
 # Python
 __pycache__/
 *.py[cod]
