@@ -116,6 +116,58 @@ echo ""
 echo "🔑 Checking Anthropic API key..."
 if aws ssm get-parameter --name /prod/anthropic-api-key --region $SAM_REGION &>/dev/null; then
     echo -e "${GREEN}✓${NC} Anthropic API key found in SSM"
+    
+    # Test the API key by making a minimal API call
+    echo "🧪 Testing API key validity..."
+    API_KEY=$(aws ssm get-parameter --name /prod/anthropic-api-key --region $SAM_REGION --with-decryption --query 'Parameter.Value' --output text 2>/dev/null)
+    
+    if [ ! -z "$API_KEY" ]; then
+        # Test with a minimal request using curl
+        TEST_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d '{
+                "model": "claude-3-5-sonnet-20241022",
+                "max_tokens": 10,
+                "messages": [{"role": "user", "content": "test"}]
+            }' 2>&1)
+        
+        HTTP_CODE=$(echo "$TEST_RESPONSE" | tail -1)
+        RESPONSE_BODY=$(echo "$TEST_RESPONSE" | sed '$d')
+        
+        if [ "$HTTP_CODE" = "200" ]; then
+            echo -e "${GREEN}✓${NC} API key is valid and working"
+        elif [ "$HTTP_CODE" = "401" ]; then
+            echo -e "${RED}❌ API key is invalid or expired${NC}"
+            echo ""
+            echo "Please update your API key:"
+            echo "aws ssm put-parameter --name /prod/anthropic-api-key \\"
+            echo "  --value \"sk-ant-...\" --type SecureString --region $SAM_REGION --overwrite"
+            exit 1
+        elif echo "$RESPONSE_BODY" | grep -q "credit balance is too low"; then
+            echo -e "${YELLOW}⚠️  WARNING: Anthropic API account has insufficient credits${NC}"
+            echo ""
+            echo "Your API key is valid, but your account is out of credits."
+            echo "Add credits at: https://console.anthropic.com/settings/billing"
+            echo ""
+            read -p "Continue with deployment anyway? (y/n) " -n 1 -r
+            echo ""
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                exit 1
+            fi
+        elif [ "$HTTP_CODE" = "429" ]; then
+            echo -e "${YELLOW}⚠️  WARNING: Rate limit reached${NC}"
+            echo "API key appears valid but rate limited. Deployment can continue."
+        else
+            echo -e "${YELLOW}⚠️  Could not fully validate API key (HTTP $HTTP_CODE)${NC}"
+            echo "Deployment will continue, but Lambda may fail at runtime."
+            echo "Response: $RESPONSE_BODY" | head -c 200
+            echo ""
+        fi
+    else
+        echo -e "${YELLOW}⚠️  Could not retrieve API key value for testing${NC}"
+    fi
 else
     echo -e "${YELLOW}⚠️  Anthropic API key not found in SSM Parameter Store${NC}"
     echo ""

@@ -156,11 +156,72 @@ function hideTypingIndicator() {
     }
 }
 
-function showError(message) {
+function showError(message, errorType, canRetry) {
     const conversation = document.getElementById('conversation');
     const errorDiv = document.createElement('div');
     errorDiv.className = 'error-message';
-    errorDiv.innerHTML = `<strong>⚠️ Error:</strong> ${escapeHtml(message)}`;
+    
+    let errorIcon = '⚠️';
+    let errorTitle = 'Error';
+    let additionalInfo = '';
+    
+    // Customize based on error type
+    if (errorType === 'insufficient_credits') {
+        errorIcon = '💳';
+        errorTitle = 'Anthropic API Credits Depleted';
+        additionalInfo = `
+            <div class="error-details">
+                <p><strong>What to do:</strong></p>
+                <ol>
+                    <li>Add credits at: <a href="https://console.anthropic.com/settings/billing" target="_blank">Anthropic Billing</a></li>
+                    <li>Refresh this page</li>
+                    <li>Try your request again</li>
+                </ol>
+            </div>
+        `;
+    } else if (errorType === 'rate_limit') {
+        errorIcon = '⏱️';
+        errorTitle = 'Rate Limit Reached';
+        additionalInfo = `
+            <div class="error-details">
+                <p><strong>What to do:</strong></p>
+                <ul>
+                    <li>Wait 30-60 seconds and try again</li>
+                    <li>If this persists, check your <a href="https://console.anthropic.com/settings/limits" target="_blank">API limits</a></li>
+                </ul>
+                ${canRetry ? '<p class="retry-hint">✓ You can retry this request</p>' : ''}
+            </div>
+        `;
+    } else if (errorType === 'invalid_api_key') {
+        errorIcon = '🔑';
+        errorTitle = 'API Configuration Error';
+        additionalInfo = `
+            <div class="error-details">
+                <p><strong>Administrator action required:</strong></p>
+                <ul>
+                    <li>Check the Anthropic API key in AWS SSM Parameter Store</li>
+                    <li>Ensure the key is valid and not expired</li>
+                    <li>Redeploy the application after fixing</li>
+                </ul>
+            </div>
+        `;
+    } else if (errorType === 'anthropic_error') {
+        errorIcon = '🤖';
+        errorTitle = 'AI Service Error';
+        additionalInfo = canRetry ? '<p class="retry-hint">✓ Please try again</p>' : '';
+    }
+    
+    errorDiv.innerHTML = `
+        <div class="error-header">
+            <span class="error-icon">${errorIcon}</span>
+            <strong>${errorTitle}</strong>
+        </div>
+        <div class="error-content">
+            <p>${escapeHtml(message)}</p>
+            ${additionalInfo}
+        </div>
+    `;
+    
     conversation.appendChild(errorDiv);
     scrollToBottom();
 }
@@ -375,15 +436,28 @@ async function sendMessage() {
         
         if (!response.ok) {
             let errorMessage = `Server returned ${response.status}: ${response.statusText}`;
+            let errorType = null;
+            let canRetry = true;
+            
             try {
                 const errorData = await response.json();
                 if (errorData.error) {
                     errorMessage = errorData.error;
                 }
+                if (errorData.errorType) {
+                    errorType = errorData.errorType;
+                }
+                if (errorData.canRetry !== undefined) {
+                    canRetry = errorData.canRetry;
+                }
             } catch (e) {
                 // Ignore JSON parse errors
             }
-            throw new Error(errorMessage);
+            
+            const error = new Error(errorMessage);
+            error.errorType = errorType;
+            error.canRetry = canRetry;
+            throw error;
         }
         
         const data = await response.json();
@@ -398,9 +472,12 @@ async function sendMessage() {
         console.error('Error:', error);
         
         let errorMessage = error.message || 'Failed to connect to the server. Please try again.';
+        let errorType = error.errorType || null;
+        let canRetry = error.canRetry !== undefined ? error.canRetry : true;
         
-        // Enhanced error messages
+        // Enhanced error messages for network errors
         if (error.message && error.message.includes('Failed to fetch')) {
+            errorType = 'network_error';
             errorMessage = `**Connection Failed**
 
 Possible causes:
@@ -411,6 +488,7 @@ Possible causes:
 
 Try using demo mode for testing without a backend.`;
         } else if (error.message && (error.message.includes('SSL') || error.message.includes('certificate'))) {
+            errorType = 'ssl_error';
             errorMessage = `**SSL Certificate Error**
 
 ${error.message}
@@ -423,7 +501,7 @@ This usually means:
 For development, you can use demo mode.`;
         }
         
-        showError(errorMessage);
+        showError(errorMessage, errorType, canRetry);
     } finally {
         setLoading(false);
         userInput.focus();

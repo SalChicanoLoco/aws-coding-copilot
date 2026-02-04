@@ -22,10 +22,47 @@ if ! command -v sam &> /dev/null; then
 fi
 
 # Check API key exists
+echo "🔑 Checking Anthropic API key..."
 if ! aws ssm get-parameter --name /prod/anthropic-api-key --region $REGION --with-decryption &> /dev/null; then
     echo "❌ Anthropic API key not found in SSM Parameter Store."
     echo "   Run: aws ssm put-parameter --name /prod/anthropic-api-key --value 'YOUR_KEY' --type SecureString --region $REGION"
     exit 1
+fi
+echo "   ✓ API key found in SSM"
+
+# Test the API key
+echo "🧪 Testing API key validity..."
+API_KEY=$(aws ssm get-parameter --name /prod/anthropic-api-key --region $REGION --with-decryption --query 'Parameter.Value' --output text 2>/dev/null)
+
+if [ ! -z "$API_KEY" ]; then
+    TEST_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST https://api.anthropic.com/v1/messages \
+        -H "x-api-key: $API_KEY" \
+        -H "anthropic-version: 2023-06-01" \
+        -H "content-type: application/json" \
+        -d '{
+            "model": "claude-3-5-sonnet-20241022",
+            "max_tokens": 10,
+            "messages": [{"role": "user", "content": "test"}]
+        }' 2>&1)
+    
+    HTTP_CODE=$(echo "$TEST_RESPONSE" | tail -1)
+    RESPONSE_BODY=$(echo "$TEST_RESPONSE" | sed '$d')
+    
+    if [ "$HTTP_CODE" = "200" ]; then
+        echo "   ✓ API key is valid and working"
+    elif [ "$HTTP_CODE" = "401" ]; then
+        echo "❌ API key is invalid or expired"
+        echo "   Please update: aws ssm put-parameter --name /prod/anthropic-api-key --value 'sk-ant-...' --type SecureString --region $REGION --overwrite"
+        exit 1
+    elif echo "$RESPONSE_BODY" | grep -q "credit balance is too low"; then
+        echo "⚠️  WARNING: Anthropic account has insufficient credits"
+        echo "   Add credits at: https://console.anthropic.com/settings/billing"
+        echo "   Deployment will continue, but API calls will fail until credits are added."
+    elif [ "$HTTP_CODE" = "429" ]; then
+        echo "   ⚠️  Rate limit reached, but key appears valid"
+    else
+        echo "   ⚠️  Could not fully validate API key (HTTP $HTTP_CODE)"
+    fi
 fi
 
 echo "   ✓ AWS CLI installed"
