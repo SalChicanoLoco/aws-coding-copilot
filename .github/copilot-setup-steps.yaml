@@ -1,0 +1,94 @@
+version: "1.0"
+description: "Environment setup steps for AWS Coding Copilot development and deployment"
+
+setup_steps:
+  # Step 1: Verify prerequisites are installed
+  - name: "Check AWS CLI"
+    command: "aws --version"
+    description: "Verify AWS CLI v2.x or later is installed"
+    required: true
+    
+  - name: "Check SAM CLI"
+    command: "sam --version"
+    description: "Verify AWS SAM CLI v1.100.0 or later is installed"
+    required: true
+    
+  - name: "Check Docker"
+    command: "docker info"
+    description: "Verify Docker Desktop is installed and running"
+    required: true
+    
+  # Step 2: Verify AWS credentials
+  - name: "Verify AWS credentials"
+    command: "aws sts get-caller-identity"
+    description: "Ensure AWS credentials are configured properly"
+    required: true
+    
+  # Step 3: Check region configuration
+  - name: "Check AWS region"
+    command: "aws configure get region"
+    description: "Verify AWS region is set (should be us-east-2 for default deployment)"
+    required: false
+    
+  # Step 4: Verify Anthropic API key is stored
+  - name: "Check Anthropic API key in SSM"
+    command: "aws ssm get-parameter --name /prod/anthropic-api-key --region us-east-2 --query 'Parameter.Name' --output text"
+    description: "Verify Anthropic API key is stored in SSM Parameter Store"
+    required: true
+    failure_message: "Anthropic API key not found. Store it with: aws ssm put-parameter --name /prod/anthropic-api-key --value 'sk-ant-...' --type SecureString --region us-east-2"
+
+# Environment variables (optional, for reference)
+environment:
+  AWS_DEFAULT_REGION: "us-east-2"
+  STACK_NAME: "prod-coding-copilot"
+
+# Testing and validation
+validation:
+  - name: "Build Lambda container"
+    command: "cd backend/infrastructure && sam build"
+    description: "Build the Lambda container image to verify Docker and dependencies"
+    
+  - name: "Validate SAM template"
+    command: "cd backend/infrastructure && sam validate"
+    description: "Validate the SAM template syntax"
+    
+  - name: "Check for existing stack"
+    command: "aws cloudformation describe-stacks --stack-name prod-coding-copilot --region us-east-2 --query 'Stacks[0].StackStatus' --output text"
+    description: "Check if the stack is already deployed"
+    required: false
+
+# Common deployment commands
+deployment:
+  primary:
+    command: "./deploy-safe.sh"
+    description: "Primary deployment script with validation and safety checks"
+    
+  validate:
+    command: "./validate-self.sh"
+    description: "Validate the deployment is working correctly"
+    
+  cleanup:
+    command: "cd backend/infrastructure && ./cleanup.sh"
+    description: "Clean up failed or stuck deployments"
+
+# Development workflow
+development:
+  build:
+    command: "cd backend/infrastructure && sam build"
+    description: "Build the Lambda container image"
+    
+  logs:
+    command: "sam logs -n CodingCopilotFunction --stack-name prod-coding-copilot --tail --region us-east-2"
+    description: "View Lambda function logs in real-time"
+    
+  update_frontend:
+    command: "aws s3 sync frontend/ s3://$(aws cloudformation describe-stacks --stack-name prod-coding-copilot --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' --output text --region us-east-2)/ --delete --region us-east-2"
+    description: "Update frontend files after making changes"
+
+notes: |
+  - Docker must be running before any build or deploy operations
+  - The first build takes 2-3 minutes as Docker downloads base images
+  - Always use deploy-safe.sh instead of deploy.sh for deployments
+  - The validate-self.sh script provides comprehensive deployment testing
+  - This project has no automated test suite - use validate-self.sh for testing
+  - Cost target is <$2/month for AWS infrastructure (excluding Anthropic API usage)
