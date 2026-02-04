@@ -27,6 +27,9 @@ ERROR_TYPE_INVALID_API_KEY = 'invalid_api_key'
 ERROR_TYPE_ANTHROPIC_ERROR = 'anthropic_error'
 ERROR_TYPE_SYSTEM_ERROR = 'system_error'
 
+# Error message limits
+MAX_ERROR_MESSAGE_LENGTH = 200
+
 SYSTEM_PROMPT = """You are an expert AWS developer assistant. Help users with:
 - Writing AWS Lambda functions (Python, Node.js)
 - Creating SAM and CloudFormation templates
@@ -83,13 +86,11 @@ def error_response(message, status_code=400, error_type=None, can_retry=True, de
     """
     error_body = {
         'error': message,
+        'canRetry': can_retry
     }
     
     if error_type:
         error_body['errorType'] = error_type
-    
-    if can_retry is not None:
-        error_body['canRetry'] = can_retry
         
     if details:
         error_body['details'] = details
@@ -112,12 +113,13 @@ def parse_anthropic_error(error):
         tuple: (error_message, error_type, can_retry)
     """
     error_str = str(error)
+    error_str_lower = error_str.lower()  # Convert once for performance
     error_message = error_str
     error_type = ERROR_TYPE_ANTHROPIC_ERROR
     can_retry = True
     
     # Check for insufficient credits
-    if 'credit balance is too low' in error_str.lower() or 'insufficient credits' in error_str.lower():
+    if 'credit balance is too low' in error_str_lower or 'insufficient credits' in error_str_lower:
         error_type = ERROR_TYPE_INSUFFICIENT_CREDITS
         error_message = (
             "Your Anthropic API credit balance is too low. "
@@ -126,7 +128,7 @@ def parse_anthropic_error(error):
         can_retry = False
         
     # Check for rate limit errors
-    elif 'rate limit' in error_str.lower() or 'too many requests' in error_str.lower():
+    elif 'rate limit' in error_str_lower or 'too many requests' in error_str_lower:
         error_type = ERROR_TYPE_RATE_LIMIT
         error_message = (
             "Rate limit reached. Please wait a moment and try again. "
@@ -135,7 +137,7 @@ def parse_anthropic_error(error):
         can_retry = True
         
     # Check for invalid API key
-    elif 'api key' in error_str.lower() and ('invalid' in error_str.lower() or 'unauthorized' in error_str.lower()):
+    elif 'api key' in error_str_lower and ('invalid' in error_str_lower or 'unauthorized' in error_str_lower):
         error_type = ERROR_TYPE_INVALID_API_KEY
         error_message = (
             "API key is invalid or missing. Please check your Anthropic API key configuration. "
@@ -144,7 +146,7 @@ def parse_anthropic_error(error):
         can_retry = False
         
     # Check for authentication errors
-    elif 'authentication' in error_str.lower() or 'unauthorized' in error_str.lower():
+    elif 'authentication' in error_str_lower or 'unauthorized' in error_str_lower:
         error_type = ERROR_TYPE_INVALID_API_KEY
         error_message = (
             "Authentication failed. Please verify your Anthropic API key is valid and has not expired."
@@ -157,7 +159,7 @@ def parse_anthropic_error(error):
         if hasattr(error, 'message'):
             error_message = f"Anthropic API error: {error.message}"
         else:
-            error_message = f"An error occurred with the AI service: {error_str[:200]}"
+            error_message = f"An error occurred with the AI service: {error_str[:MAX_ERROR_MESSAGE_LENGTH]}"
         can_retry = True
     
     return error_message, error_type, can_retry
