@@ -1,5 +1,19 @@
 # 🚀 AWS Coding Copilot
 
+## 🔒 **SECURITY FIRST**
+
+**⚠️ NEVER commit API keys to git!**
+
+This project uses secure API key management:
+- 📖 **New to this repo?** Read [SECURITY_SETUP.md](SECURITY_SETUP.md) first
+- 🔐 Store API keys in AWS SSM Parameter Store (not in code)
+- 🛡️ Security tools included: git-secrets, pre-commit hooks, automated scanning
+- ⚡ Quick setup: Run `./setup-security.sh` after cloning
+
+See [SECURITY.md](SECURITY.md) for complete security best practices.
+
+---
+
 > **Status**: Stack deployed successfully on AWS! ✅  
 > **Next**: Building Render version for simpler deployment
 

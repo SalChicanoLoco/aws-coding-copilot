@@ -1,6 +1,27 @@
 # Test files (temporary)
 backend/lambda/test_cors.py
 
+# Config backups and temporary files
+backend/infrastructure/samconfig.toml.bak
+frontend/app.js.bak
+
+# Security - API keys and secrets
+*.key
+*.pem
+*.p12
+*.pfx
+*.keystore
+.env
+.env.*
+!.env.example
+secrets.txt
+credentials.txt
+api-keys.txt
+
+# AWS
+.aws/
+aws-credentials
+
 # Python
 __pycache__/
 *.py[cod]
@@ -38,8 +59,12 @@ wheels/
 Thumbs.db
 
 # Env
-.env
 .venv
 env/
 venv/
 *.whl
+
+# Security scanning results
+.secrets.baseline
+trufflehog-results.json
+git-secrets-scan.log

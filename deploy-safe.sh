@@ -1,10 +1,33 @@
 #!/bin/bash
 # Pre-deployment validation and safe deployment script
+# Usage: ./deploy-safe.sh [--yes|-y]
+#   --yes, -y : Skip all interactive prompts (auto-accept defaults)
 set -e
+
+# Parse command line arguments
+SKIP_PROMPTS=false
+for arg in "$@"; do
+    if [[ "$arg" == "--yes" || "$arg" == "-y" ]]; then
+        SKIP_PROMPTS=true
+    elif [[ "$arg" == "--help" || "$arg" == "-h" ]]; then
+        echo "Usage: $0 [OPTIONS]"
+        echo ""
+        echo "Safe deployment script with validation checks"
+        echo ""
+        echo "Options:"
+        echo "  --yes, -y    Skip all interactive prompts (auto-accept defaults)"
+        echo "  --help, -h   Show this help message"
+        echo ""
+        exit 0
+    fi
+done
 
 echo "========================================"
 echo "  AWS Coding Copilot Safe Deployment"
 echo "========================================"
+if [ "$SKIP_PROMPTS" = true ]; then
+    echo "  (Running with --yes flag)"
+fi
 echo ""
 
 # Color codes for output
@@ -46,9 +69,20 @@ if [ "$CLI_REGION" != "$SAM_REGION" ]; then
     echo "   AWS CLI: $CLI_REGION"
     echo "   SAM Config: $SAM_REGION"
     echo ""
-    read -p "   Update samconfig.toml to use $CLI_REGION? (y/n) " -n 1 -r
-    echo ""
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+    
+    UPDATE_REGION=false
+    if [ "$SKIP_PROMPTS" = true ]; then
+        echo "   Auto-updating samconfig.toml to use $CLI_REGION (--yes flag)"
+        UPDATE_REGION=true
+    else
+        read -p "   Update samconfig.toml to use $CLI_REGION? (Y/n) " -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+            UPDATE_REGION=true
+        fi
+    fi
+    
+    if [ "$UPDATE_REGION" = true ]; then
         # Create backup
         cp backend/infrastructure/samconfig.toml backend/infrastructure/samconfig.toml.bak
         # Update both region lines (works on both Linux and macOS)
@@ -74,9 +108,20 @@ if [ ! -z "$ORPHANED_BUCKETS" ]; then
     echo -e "${YELLOW}⚠️  Found S3 buckets that may be orphaned:${NC}"
     echo "$ORPHANED_BUCKETS"
     echo ""
-    read -p "   Delete these buckets? (y/n) " -n 1 -r
-    echo ""
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+    
+    DELETE_BUCKETS=false
+    if [ "$SKIP_PROMPTS" = true ]; then
+        echo "   Auto-deleting orphaned buckets (--yes flag)"
+        DELETE_BUCKETS=true
+    else
+        read -p "   Delete these buckets? (Y/n) " -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+            DELETE_BUCKETS=true
+        fi
+    fi
+    
+    if [ "$DELETE_BUCKETS" = true ]; then
         echo "$ORPHANED_BUCKETS" | awk '{print $3}' | while read bucket; do
             echo "Emptying bucket: $bucket"
             aws s3 rm "s3://$bucket" --recursive --region $SAM_REGION 2>/dev/null || true
@@ -151,10 +196,15 @@ if aws ssm get-parameter --name /prod/anthropic-api-key --region $SAM_REGION &>/
             echo "Your API key is valid, but your account is out of credits."
             echo "Add credits at: https://console.anthropic.com/settings/billing"
             echo ""
-            read -p "Continue with deployment anyway? (y/n) " -n 1 -r
-            echo ""
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                exit 1
+            
+            if [ "$SKIP_PROMPTS" = true ]; then
+                echo "   Continuing with deployment anyway (--yes flag)"
+            else
+                read -p "Continue with deployment anyway? (y/N) " -r
+                echo ""
+                if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                    exit 1
+                fi
             fi
         elif [ "$HTTP_CODE" = "429" ]; then
             echo -e "${YELLOW}⚠️  WARNING: Rate limit reached${NC}"
@@ -175,10 +225,16 @@ else
     echo "aws ssm put-parameter --name /prod/anthropic-api-key \\"
     echo "  --value \"sk-ant-...\" --type SecureString --region $SAM_REGION"
     echo ""
-    read -p "Continue without API key? (Deployment will work but Lambda will fail at runtime) (y/n) " -n 1 -r
-    echo ""
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
+    
+    if [ "$SKIP_PROMPTS" = true ]; then
+        echo "   Skipping API key requirement (--yes flag)"
+        echo "   Deployment will work but Lambda will fail at runtime"
+    else
+        read -p "Continue without API key? (Deployment will work but Lambda will fail at runtime) (y/N) " -r
+        echo ""
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
     fi
 fi
 echo ""

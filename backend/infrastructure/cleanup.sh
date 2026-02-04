@@ -1,11 +1,34 @@
 #!/bin/bash
 # Cleanup script for failed deployments
+# Usage: ./cleanup.sh [--yes|-y]
+#   --yes, -y : Skip all interactive prompts (auto-accept defaults)
 
 set -e
+
+# Parse command line arguments
+SKIP_PROMPTS=false
+for arg in "$@"; do
+    if [[ "$arg" == "--yes" || "$arg" == "-y" ]]; then
+        SKIP_PROMPTS=true
+    elif [[ "$arg" == "--help" || "$arg" == "-h" ]]; then
+        echo "Usage: $0 [OPTIONS]"
+        echo ""
+        echo "Cleanup script for failed deployments"
+        echo ""
+        echo "Options:"
+        echo "  --yes, -y    Skip all interactive prompts (auto-accept defaults)"
+        echo "  --help, -h   Show this help message"
+        echo ""
+        exit 0
+    fi
+done
 
 echo "========================================"
 echo "  AWS Coding Copilot Cleanup"
 echo "========================================"
+if [ "$SKIP_PROMPTS" = true ]; then
+    echo "  (Running with --yes flag)"
+fi
 echo ""
 
 # Color codes
@@ -73,9 +96,20 @@ if [ ! -z "$ORPHANED" ]; then
     echo -e "${YELLOW}⚠️  Found potential orphaned buckets:${NC}"
     echo "$ORPHANED"
     echo ""
-    read -p "Delete these buckets? (y/n) " -n 1 -r
-    echo ""
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+    
+    DELETE_BUCKETS=false
+    if [ "$SKIP_PROMPTS" = true ]; then
+        echo "Auto-deleting orphaned buckets (--yes flag)"
+        DELETE_BUCKETS=true
+    else
+        read -p "Delete these buckets? (Y/n) " -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+            DELETE_BUCKETS=true
+        fi
+    fi
+    
+    if [ "$DELETE_BUCKETS" = true ]; then
         echo "$ORPHANED" | awk '{print $3}' | while read bucket; do
             echo "Emptying $bucket..."
             aws s3 rm "s3://$bucket" --recursive --region $REGION 2>/dev/null || true
