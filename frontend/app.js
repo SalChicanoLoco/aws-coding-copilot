@@ -7,8 +7,8 @@
 const API_ENDPOINT = 'YOUR_API_ENDPOINT_HERE';
 
 // Demo mode - automatically enabled when API not configured
-// Set this to true to force demo mode even with a configured API
-const DEMO_MODE = API_ENDPOINT.includes('YOUR_API_ENDPOINT_HERE');
+// Check if API_ENDPOINT is still the placeholder (not a real URL)
+const DEMO_MODE = !API_ENDPOINT.startsWith('https://');
 
 // Demo mode simulated delay (in milliseconds) to mimic real API response time
 const DEMO_MODE_DELAY_MS = 800;
