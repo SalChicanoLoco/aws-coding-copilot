@@ -1,0 +1,101 @@
+name: Auto Deploy on Merge
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+      
+      - name: Set up SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+      
+      - name: Build Lambda container
+        run: |
+          cd backend/infrastructure
+          sam build --use-container
+      
+      - name: Deploy to AWS
+        run: |
+          cd backend/infrastructure
+          sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --region us-east-2
+      
+      - name: Get API endpoint
+        id: get-endpoint
+        run: |
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name prod-coding-copilot \
+            --region us-east-2 \
+            --query 'Stacks[0].Outputs[?OutputKey==`ChatEndpoint`].OutputValue' \
+            --output text)
+          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+          
+          BUCKET_NAME=$(aws cloudformation describe-stacks \
+            --stack-name prod-coding-copilot \
+            --region us-east-2 \
+            --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' \
+            --output text)
+          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+          
+          FRONTEND_URL=$(aws cloudformation describe-stacks \
+            --stack-name prod-coding-copilot \
+            --region us-east-2 \
+            --query 'Stacks[0].Outputs[?OutputKey==`FrontendURL`].OutputValue' \
+            --output text)
+          echo "frontend_url=$FRONTEND_URL" >> $GITHUB_OUTPUT
+      
+      - name: Update and deploy frontend
+        run: |
+          cd frontend
+          sed -i "s|const API_ENDPOINT = '.*';|const API_ENDPOINT = '${{ steps.get-endpoint.outputs.api_url }}';|" app.js
+          aws s3 sync . s3://${{ steps.get-endpoint.outputs.bucket_name }}/ --delete --region us-east-2
+      
+      - name: Test Lambda endpoint
+        run: |
+          API_URL="${{ steps.get-endpoint.outputs.api_url }}"
+          echo "Testing Lambda at: $API_URL"
+          
+          RESPONSE=$(curl -s -X POST $API_URL \
+            -H "Content-Type: application/json" \
+            -d '{"message": "Test deployment", "conversationId": "ci-test-'$(date +%s)'"}')
+          
+          echo "Response: $RESPONSE"
+          
+          # Check if response contains expected fields
+          if echo "$RESPONSE" | grep -q "response"; then
+            echo "✅ Lambda test successful!"
+          else
+            echo "❌ Lambda test failed - unexpected response"
+            exit 1
+          fi
+      
+      - name: Deployment summary
+        run: |
+          echo "=========================================="
+          echo "✅ Deployment Complete!"
+          echo "=========================================="
+          echo ""
+          echo "🌐 Frontend URL: ${{ steps.get-endpoint.outputs.frontend_url }}"
+          echo "📡 API Endpoint: ${{ steps.get-endpoint.outputs.api_url }}"
+          echo ""

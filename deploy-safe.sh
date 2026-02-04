@@ -157,83 +157,49 @@ SAM_VERSION=$(sam --version)
 echo -e "${GREEN}✓${NC} SAM CLI installed: $SAM_VERSION"
 echo ""
 
-# 8. Check for Anthropic API key
-echo "🔑 Checking Anthropic API key..."
-if aws ssm get-parameter --name /prod/anthropic-api-key --region $SAM_REGION &>/dev/null; then
-    echo -e "${GREEN}✓${NC} Anthropic API key found in SSM"
-    
-    # Test the API key by making a minimal API call
-    echo "🧪 Testing API key validity..."
-    API_KEY=$(aws ssm get-parameter --name /prod/anthropic-api-key --region $SAM_REGION --with-decryption --query 'Parameter.Value' --output text 2>/dev/null)
-    
-    if [ ! -z "$API_KEY" ]; then
-        # Test with a minimal request using curl
-        TEST_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST https://api.anthropic.com/v1/messages \
-            -H "x-api-key: $API_KEY" \
-            -H "anthropic-version: 2023-06-01" \
-            -H "content-type: application/json" \
-            -d '{
-                "model": "claude-3-haiku-20240307",
-                "max_tokens": 10,
-                "messages": [{"role": "user", "content": "test"}]
-            }' 2>&1)
-        
-        HTTP_CODE=$(echo "$TEST_RESPONSE" | tail -1)
-        RESPONSE_BODY=$(echo "$TEST_RESPONSE" | sed '$d')
-        
-        if [ "$HTTP_CODE" = "200" ]; then
-            echo -e "${GREEN}✓${NC} API key is valid and working"
-        elif [ "$HTTP_CODE" = "401" ]; then
-            echo -e "${RED}❌ API key is invalid or expired${NC}"
-            echo ""
-            echo "Please update your API key:"
-            echo "aws ssm put-parameter --name /prod/anthropic-api-key \\"
-            echo "  --value \"sk-ant-...\" --type SecureString --region $SAM_REGION --overwrite"
-            exit 1
-        elif echo "$RESPONSE_BODY" | grep -q "credit balance is too low"; then
-            echo -e "${YELLOW}⚠️  WARNING: Anthropic API account has insufficient credits${NC}"
-            echo ""
-            echo "Your API key is valid, but your account is out of credits."
-            echo "Add credits at: https://console.anthropic.com/settings/billing"
-            echo ""
-            
-            if [ "$SKIP_PROMPTS" = true ]; then
-                echo "   Continuing with deployment anyway (--yes flag)"
-            else
-                read -p "Continue with deployment anyway? (y/N) " -r
-                echo ""
-                if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                    exit 1
-                fi
-            fi
-        elif [ "$HTTP_CODE" = "429" ]; then
-            echo -e "${YELLOW}⚠️  WARNING: Rate limit reached${NC}"
-            echo "API key appears valid but rate limited. Deployment can continue."
-        else
-            echo -e "${YELLOW}⚠️  Could not fully validate API key (HTTP $HTTP_CODE)${NC}"
-            echo "Deployment will continue, but Lambda may fail at runtime."
-            echo "Response: $RESPONSE_BODY" | head -c 200
-            echo ""
-        fi
-    else
-        echo -e "${YELLOW}⚠️  Could not retrieve API key value for testing${NC}"
-    fi
-else
-    echo -e "${YELLOW}⚠️  Anthropic API key not found in SSM Parameter Store${NC}"
+# 8. Check for AWS Bedrock access
+echo "🔑 Checking AWS Bedrock access..."
+BEDROCK_CHECK=$(aws bedrock list-foundation-models --region $SAM_REGION 2>&1 || echo "ERROR")
+
+if echo "$BEDROCK_CHECK" | grep -q "ERROR\|AccessDenied\|not available"; then
+    echo -e "${YELLOW}⚠️  Cannot access AWS Bedrock${NC}"
     echo ""
-    echo "To set it up, run:"
-    echo "aws ssm put-parameter --name /prod/anthropic-api-key \\"
-    echo "  --value \"sk-ant-...\" --type SecureString --region $SAM_REGION"
+    echo "AWS Bedrock may not be enabled in your account or region."
+    echo ""
+    echo "To enable AWS Bedrock:"
+    echo "1. Visit: https://console.aws.amazon.com/bedrock"
+    echo "2. Click 'Model access' in the left sidebar"  
+    echo "3. Click 'Manage model access'"
+    echo "4. Enable 'Claude 3 Haiku' by Anthropic"
+    echo "5. Submit the request (usually approved instantly)"
     echo ""
     
     if [ "$SKIP_PROMPTS" = true ]; then
-        echo "   Skipping API key requirement (--yes flag)"
-        echo "   Deployment will work but Lambda will fail at runtime"
+        echo "   Continuing without Bedrock verification (--yes flag)"
+        echo "   Lambda will fail at runtime if Bedrock is not enabled"
     else
-        read -p "Continue without API key? (Deployment will work but Lambda will fail at runtime) (y/N) " -r
+        read -p "Continue without Bedrock verification? (Lambda will fail at runtime) (y/N) " -r
         echo ""
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             exit 1
+        fi
+    fi
+else
+    echo -e "${GREEN}✓${NC} AWS Bedrock is accessible"
+    
+    # Check if Claude model is available
+    if echo "$BEDROCK_CHECK" | grep -q "anthropic.claude-3-haiku"; then
+        echo -e "${GREEN}✓${NC} Claude 3 Haiku model is available"
+    else
+        echo -e "${YELLOW}⚠️  Claude 3 Haiku model may not be enabled${NC}"
+        echo "Enable it at: https://console.aws.amazon.com/bedrock"
+        
+        if [ "$SKIP_PROMPTS" = false ]; then
+            read -p "Continue anyway? (y/N) " -r
+            echo ""
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                exit 1
+            fi
         fi
     fi
 fi

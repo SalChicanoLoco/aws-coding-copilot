@@ -62,19 +62,21 @@ Resources:
     Properties:
       FunctionName: !Sub '${Environment}-coding-copilot-chat'
       PackageType: Image
-      Description: Chat handler for AWS Coding Copilot
+      Description: Chat handler for AWS Coding Copilot using AWS Bedrock
       Environment:
         Variables:
           CONVERSATIONS_TABLE: !Ref ConversationsTable
-          ANTHROPIC_API_KEY_PARAM: /prod/anthropic-api-key
+          USE_BEDROCK: 'true'
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ConversationsTable
         - Statement:
           - Effect: Allow
             Action:
-              - ssm:GetParameter
-            Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/prod/anthropic-api-key'
+              - bedrock:InvokeModel
+            Resource: 
+              - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0'
+              - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/anthropic.claude-*'
       Events:
         ChatApi:
           Type: Api

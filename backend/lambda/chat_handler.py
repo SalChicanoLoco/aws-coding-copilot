@@ -1,7 +1,6 @@
 import json
 import os
 import boto3
-import anthropic
 from datetime import datetime, timedelta
 from decimal import Decimal
 import uuid
@@ -10,15 +9,12 @@ import uuid
 # CONFIGURATION
 # ============================================
 CONVERSATIONS_TABLE = os.environ.get('CONVERSATIONS_TABLE')
-ANTHROPIC_API_KEY_PARAM = os.environ.get('ANTHROPIC_API_KEY_PARAM', '/prod/anthropic-api-key')
 AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1')
+USE_BEDROCK = os.environ.get('USE_BEDROCK', 'true').lower() == 'true'
 
 # Initialize AWS clients
 dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION)
-ssm = boto3.client('ssm', region_name=AWS_REGION)
-
-# Cache for API key
-_anthropic_client = None
+bedrock = boto3.client('bedrock-runtime', region_name=AWS_REGION)
 
 # Error type constants
 ERROR_TYPE_INSUFFICIENT_CREDITS = 'insufficient_credits'
@@ -166,28 +162,46 @@ def parse_anthropic_error(error):
 
 
 # ============================================
-# ANTHROPIC CLIENT
+# BEDROCK CLIENT
 # ============================================
-def get_anthropic_client():
-    """Initialize and cache Anthropic client with API key from SSM."""
-    global _anthropic_client
+def call_bedrock_claude(messages, system_prompt, request_id):
+    """Call Claude via AWS Bedrock.
     
-    if _anthropic_client is None:
-        try:
-            response = ssm.get_parameter(
-                Name=ANTHROPIC_API_KEY_PARAM,
-                WithDecryption=True
-            )
-            api_key = response['Parameter']['Value']
-            _anthropic_client = anthropic.Anthropic(api_key=api_key)
-        except ssm.exceptions.ParameterNotFound:
-            print(f"ERROR: API key parameter not found: {ANTHROPIC_API_KEY_PARAM}")
-            raise Exception("API key not configured. Please set up the Anthropic API key in SSM Parameter Store.")
-        except Exception as e:
-            print(f"ERROR: Failed to retrieve API key from SSM: {str(e)}")
-            raise Exception(f"Configuration error: Unable to retrieve API key - {str(e)}")
-    
-    return _anthropic_client
+    Args:
+        messages: List of conversation messages
+        system_prompt: System prompt for Claude
+        request_id: Request ID for logging
+        
+    Returns:
+        str: Claude's response text
+    """
+    try:
+        # Prepare the request body for Bedrock
+        body = json.dumps({
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 2048,
+            "system": system_prompt,
+            "messages": messages
+        })
+        
+        # Call Bedrock with Claude Haiku model
+        response = bedrock.invoke_model(
+            modelId='anthropic.claude-3-haiku-20240307-v1:0',
+            body=body
+        )
+        
+        # Parse response
+        response_body = json.loads(response['body'].read())
+        
+        # Extract text from response
+        if 'content' in response_body and len(response_body['content']) > 0:
+            return response_body['content'][0]['text']
+        else:
+            raise Exception("No content in Bedrock response")
+            
+    except Exception as e:
+        print(f"REQUEST_ID={request_id} ERROR: Bedrock call failed: {str(e)}")
+        raise
 
 
 # ============================================
@@ -248,10 +262,10 @@ def get_conversation_history(conversation_id, limit=10):
 
 
 # ============================================
-# ANTHROPIC API
+# AI API
 # ============================================
 def generate_response(user_message, conversation_history, request_id):
-    """Generate a response using Anthropic API.
+    """Generate a response using AWS Bedrock.
     
     Args:
         user_message: The user's message
@@ -265,8 +279,6 @@ def generate_response(user_message, conversation_history, request_id):
         Exception: On API errors (with parsed error details)
     """
     try:
-        client = get_anthropic_client()
-        
         # Build messages array with history
         messages = conversation_history.copy()
         messages.append({
@@ -274,35 +286,38 @@ def generate_response(user_message, conversation_history, request_id):
             'content': user_message
         })
         
-        print(f"REQUEST_ID={request_id} Calling Anthropic API with {len(messages)} messages")
+        print(f"REQUEST_ID={request_id} Calling AWS Bedrock with {len(messages)} messages")
         
-        # Call Anthropic API
-        response = client.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=2048,
-            system=SYSTEM_PROMPT,
-            messages=messages
-        )
-        
-        # Extract response text
-        assistant_message = response.content[0].text
+        # Call Bedrock
+        assistant_message = call_bedrock_claude(messages, SYSTEM_PROMPT, request_id)
         
         print(f"REQUEST_ID={request_id} Generated response with {len(assistant_message)} characters")
         return assistant_message
         
-    except anthropic.APIError as e:
-        # Anthropic-specific errors (rate limits, credits, etc.)
-        print(f"REQUEST_ID={request_id} ERROR_TYPE=AnthropicAPIError: {str(e)}")
-        error_message, error_type, can_retry = parse_anthropic_error(e)
-        # Re-raise with parsed details
-        error = Exception(error_message)
-        error.error_type = error_type
-        error.can_retry = can_retry
-        raise error
     except Exception as e:
-        print(f"REQUEST_ID={request_id} ERROR_TYPE=UnexpectedError: {str(e)}")
-        # For non-Anthropic errors, try to parse them anyway
-        error_message, error_type, can_retry = parse_anthropic_error(e)
+        print(f"REQUEST_ID={request_id} ERROR_TYPE=BedrockError: {str(e)}")
+        
+        # Parse Bedrock errors
+        error_str = str(e).lower()
+        
+        if 'throttling' in error_str or 'rate' in error_str:
+            error_message = "Rate limit reached. Please wait a moment and try again."
+            error_type = ERROR_TYPE_RATE_LIMIT
+            can_retry = True
+        elif 'access' in error_str or 'denied' in error_str or 'authorized' in error_str:
+            error_message = "Access denied to AWS Bedrock. Please ensure the Lambda has proper IAM permissions."
+            error_type = ERROR_TYPE_INVALID_API_KEY
+            can_retry = False
+        elif 'model' in error_str and 'not found' in error_str:
+            error_message = "Claude model not available in Bedrock. Please enable Claude models in your AWS account."
+            error_type = ERROR_TYPE_SYSTEM_ERROR
+            can_retry = False
+        else:
+            error_message = f"AI service error: {str(e)[:200]}"
+            error_type = ERROR_TYPE_ANTHROPIC_ERROR
+            can_retry = True
+        
+        # Create error with metadata
         error = Exception(error_message)
         error.error_type = error_type
         error.can_retry = can_retry
