@@ -140,10 +140,17 @@ curl -X POST $API_URL \
 
 **Check 1: Is the new code deployed?**
 ```bash
+# Get function name first
+FUNCTION_NAME=$(aws cloudformation describe-stacks \
+  --stack-name prod-coding-copilot \
+  --region us-east-2 \
+  --query 'Stacks[0].Outputs[?OutputKey==`LambdaFunctionArn`].OutputValue' \
+  --output text | awk -F: '{print $NF}')
+
 # Check Lambda update time
 aws lambda get-function \
-  --function-name prod-coding-copilot-chat \
-  --region us-east-1 \
+  --function-name "$FUNCTION_NAME" \
+  --region us-east-2 \
   --query 'Configuration.LastModified'
 ```
 
@@ -154,7 +161,14 @@ Hard refresh: Ctrl+Shift+R (Windows/Linux) or Cmd+Shift+R (Mac)
 
 **Check 3: View Lambda logs**
 ```bash
-aws logs tail /aws/lambda/prod-coding-copilot-chat --follow --region us-east-1
+# Get function name first (if not already set)
+FUNCTION_NAME=$(aws cloudformation describe-stacks \
+  --stack-name prod-coding-copilot \
+  --region us-east-2 \
+  --query 'Stacks[0].Outputs[?OutputKey==`LambdaFunctionArn`].OutputValue' \
+  --output text | awk -F: '{print $NF}')
+
+aws logs tail /aws/lambda/$FUNCTION_NAME --follow --region us-east-2
 ```
 
 Look for the log line showing headers being returned.

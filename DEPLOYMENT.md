@@ -306,7 +306,14 @@ sam logs -n CodingCopilotFunction --stack-name aws-coding-copilot --tail
 
 Or using AWS CLI:
 ```bash
-aws logs tail /aws/lambda/prod-coding-copilot-chat --follow --region us-east-1
+# Get function name first
+FUNCTION_NAME=$(aws cloudformation describe-stacks \
+  --stack-name prod-coding-copilot \
+  --region us-east-2 \
+  --query 'Stacks[0].Outputs[?OutputKey==`LambdaFunctionArn`].OutputValue' \
+  --output text | awk -F: '{print $NF}')
+
+aws logs tail /aws/lambda/$FUNCTION_NAME --follow --region us-east-2
 ```
 
 ## Troubleshooting

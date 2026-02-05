@@ -60,7 +60,8 @@ Resources:
   CodingCopilotFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub '${Environment}-coding-copilot-chat'
+      # FunctionName removed - CloudFormation will auto-generate
+      # This prevents "Cannot Replace Named Resource" errors during updates
       PackageType: Image
       Description: Chat handler for AWS Coding Copilot using AWS Bedrock
       Environment:
