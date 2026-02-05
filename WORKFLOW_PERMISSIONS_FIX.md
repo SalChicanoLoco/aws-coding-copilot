@@ -37,7 +37,7 @@ permissions:
   contents: write       # Required for auto-merge and file deletion
 ```
 
-**Complete context:**
+**Complete context showing actual implementation:**
 ```yaml
 name: One-Time Auto-Approve and Merge
 
@@ -69,10 +69,23 @@ This addition supports future migration to OIDC-based AWS authentication, which 
 ## Verification
 
 ### Workflow Syntax Validation
-All workflow files were validated using Python's YAML parser:
+All workflow files were validated using Python's YAML parser to ensure proper syntax:
+
 ```bash
-python3 -c "import yaml; yaml.safe_load(open('.github/workflows/auto-approve-once.yml'))"
+# Validate all workflow YAML files
+for file in .github/workflows/*.yml; do
+  python3 -c "import yaml; yaml.safe_load(open('$file'))" && echo "✅ $file valid"
+done
 ```
+
+**Expected output on success:**
+```
+✅ .github/workflows/auto-approve-once.yml valid
+✅ .github/workflows/auto-deploy.yml valid
+✅ .github/workflows/security-scan.yml valid
+```
+
+**Note:** GitHub also validates workflows on push. Check the Actions tab for any validation errors.
 
 ### Expected Behavior After Fix
 1. When a Copilot agent creates a PR with "FULL AUTOMATION" or "security scan" in the title
