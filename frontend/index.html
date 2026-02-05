@@ -3,101 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="AI-powered AWS development assistant - Get expert help with Lambda, CloudFormation, SAM, and more">
-    <meta name="theme-color" content="#FF9900">
-    <title>AWS Coding Copilot - AI Assistant for AWS Development</title>
+    <title>AWS Coding Copilot</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <main class="container">
-        <header class="header">
-            <div class="header-content">
-                <h1 class="title">
-                    <svg class="aws-icon" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M20 4L4 12v16l16 8 16-8V12L20 4z" fill="#FF9900"/>
-                        <path d="M20 28l-8-4V16l8 4v8zm0 0l8-4V16l-8 4v8z" fill="#232F3E"/>
-                    </svg>
-                    AWS Coding Copilot
-                </h1>
-                <p class="subtitle">Your AI-powered AWS development assistant</p>
-            </div>
-        </header>
+    <header>
+        <div class="header-content">
+            <div class="logo">⚡ AWS Coding Copilot</div>
+            <div class="subtitle">AI-powered AWS development assistant</div>
+        </div>
+    </header>
 
-        <div class="chat-container">
-            <div id="conversation" class="conversation" role="log" aria-live="polite" aria-label="Conversation">
-                <div class="welcome-message">
-                    <h2>👋 Welcome!</h2>
-                    <div class="demo-badge">🎮 Demo Mode</div>
-                    <p class="demo-notice">You're seeing simulated responses. Deploy the backend for real AI assistance.</p>
-                    
-                    <div class="capabilities">
-                        <h3>I can help you with:</h3>
-                        <div class="capability-grid">
-                            <div class="capability-item">
-                                <span class="capability-icon">⚡</span>
-                                <span>Lambda Functions</span>
-                            </div>
-                            <div class="capability-item">
-                                <span class="capability-icon">📦</span>
-                                <span>SAM Templates</span>
-                            </div>
-                            <div class="capability-item">
-                                <span class="capability-icon">☁️</span>
-                                <span>CloudFormation</span>
-                            </div>
-                            <div class="capability-item">
-                                <span class="capability-icon">🔧</span>
-                                <span>AWS SDK Code</span>
-                            </div>
-                            <div class="capability-item">
-                                <span class="capability-icon">🚀</span>
-                                <span>Deployment Help</span>
-                            </div>
-                            <div class="capability-item">
-                                <span class="capability-icon">💰</span>
-                                <span>Cost Optimization</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="example-prompt">
-                        <strong>Try asking:</strong> "Generate a Python Lambda function that processes S3 events"
-                    </div>
-                </div>
-            </div>
-
-            <div class="input-area">
-                <div class="input-wrapper">
-                    <textarea 
-                        id="userInput" 
-                        class="message-input"
-                        placeholder="Ask me anything about AWS development..."
-                        rows="1"
-                        aria-label="Message input"
-                    ></textarea>
-                    <button 
-                        id="sendButton" 
-                        class="send-button" 
-                        onclick="sendMessage()"
-                        aria-label="Send message"
-                    >
-                        <span id="buttonText" class="button-content">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M2 10l16-8-8 16-2-8-6-0z" fill="currentColor"/>
-                            </svg>
-                            <span>Send</span>
-                        </span>
-                        <span id="buttonSpinner" class="spinner" style="display: none;"></span>
-                    </button>
-                </div>
-                <div class="input-hint">Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to send</div>
+    <main id="chat-container">
+        <!-- Welcome message -->
+        <div class="message ai-message">
+            <div class="message-avatar">AI</div>
+            <div class="message-content">
+                <p>👋 Hi! I'm your AWS development assistant. I can help you with:</p>
+                <ul>
+                    <li>Writing Lambda functions (Python, Node.js)</li>
+                    <li>Creating SAM and CloudFormation templates</li>
+                    <li>AWS SDK code examples (boto3, AWS SDK for JavaScript)</li>
+                    <li>Debugging deployment issues</li>
+                    <li>Cost optimization strategies</li>
+                </ul>
+                <p>What would you like to build today?</p>
             </div>
         </div>
-
-        <footer class="footer">
-            <p>Powered by <strong>Anthropic Claude</strong> • Deployed on <strong>AWS</strong></p>
-        </footer>
     </main>
+
+    <div id="input-area">
+        <div class="input-container">
+            <textarea 
+                id="user-input" 
+                placeholder="Ask me anything about AWS development..."
+                rows="1"
+            ></textarea>
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
 
     <script src="app.js"></script>
 </body>

@@ -124,30 +124,40 @@ AWS Coding Copilot is a production-ready AI coding assistant that helps develope
 ## 🚀 Quick Start
 
 ### Prerequisites
+1. AWS CLI configured: `aws configure`
+2. Docker Desktop running
+3. SAM CLI installed: `brew install aws-sam-cli`
+4. Anthropic API key in SSM Parameter Store:
+```bash
+aws ssm put-parameter \
+  --name /prod/anthropic-api-key \
+  --value "sk-ant-..." \
+  --type SecureString
+```
 
-- [AWS CLI](https://aws.amazon.com/cli/) (v2.x or later) - configured with credentials
-- [SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) (v1.100.0 or later)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop) - required for containerized builds
-- [Anthropic API Key](https://console.anthropic.com/)
-- AWS Account with appropriate permissions
+### Deploy Everything
+```bash
+./deploy-safe.sh
+```
 
-### Deploy in ONE Command ✨
+That's it! The script will:
+- ✓ Validate your AWS setup
+- ✓ Check for orphaned resources
+- ✓ Build Lambda with Docker
+- ✓ Deploy infrastructure
+- ✓ Deploy frontend
+- ✓ Give you the live URL
 
-**NEW**: Safe deployment with automatic validation and region fixing!
+## 🔄 What's Next?
 
-1. **Prerequisites** (one-time setup):
-   ```bash
-   # Store your Anthropic API key (use your AWS region)
-   aws ssm put-parameter --name /prod/anthropic-api-key \
-     --value "sk-ant-..." --type SecureString --region us-east-2
-   ```
+Once AWS Copilot is running, **use it to build the IDE and coding agent**:
 
-2. **Deploy** (one command):
-   ```bash
-   ./deploy-safe.sh
-   ```
+1. Open the deployed app
+2. Ask it: "Help me add a code editor component"
+3. Ask it: "Generate a Lambda function for file storage"
+4. Ask it: "Create SAM template for the IDE backend"
 
-3. **Use**: Open the URL shown at the end of deployment
+**The tool helps build itself!** This is the isomorphic vision. 🔄
 
 That's it! 🚀
 
