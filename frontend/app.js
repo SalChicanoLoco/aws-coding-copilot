@@ -1,6 +1,6 @@
 // Configuration
 const API_ENDPOINT = 'YOUR_API_ENDPOINT_HERE';
-const conversationId = generateUUID();
+const conversationId = generateRandomId();
 
 // DOM elements
 const chatContainer = document.getElementById('chat-container');
@@ -27,7 +27,7 @@ function autoResize() {
     this.style.height = this.scrollHeight + 'px';
 }
 
-function generateUUID() {
+function generateRandomId() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
         const r = Math.random() * 16 | 0;
         const v = c === 'x' ? r : (r & 0x3 | 0x8);
@@ -68,7 +68,14 @@ async function sendMessage() {
         
         // Remove loading, add response
         removeLoading(loadingId);
-        addMessage('ai', data.response || data.message || 'No response received');
+        
+        // Handle API response with proper validation
+        const aiResponse = data.response || data.message;
+        if (aiResponse) {
+            addMessage('ai', aiResponse);
+        } else {
+            throw new Error('No response content received from API');
+        }
 
     } catch (error) {
         removeLoading(loadingId);
@@ -103,21 +110,24 @@ function addMessage(sender, content) {
 }
 
 function formatContent(text) {
-    // Convert ```code``` blocks
-    text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
-        return `<pre><code>${escapeHtml(code.trim())}</code></pre>`;
+    // Escape HTML first
+    const escaped = escapeHtml(text);
+    
+    // Convert ```code``` blocks (with proper escaping)
+    let formatted = escaped.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+        return `<pre><code>${code.trim()}</code></pre>`;
     });
     
-    // Convert `inline code`
-    text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+    // Convert `inline code` (content is already escaped)
+    formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
     
     // Convert **bold**
-    text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     
     // Convert line breaks
-    text = text.replace(/\n/g, '<br>');
+    formatted = formatted.replace(/\n/g, '<br>');
     
-    return text;
+    return formatted;
 }
 
 function escapeHtml(text) {
