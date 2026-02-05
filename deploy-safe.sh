@@ -37,35 +37,35 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # 1. Check AWS credentials
-echo "📋 Checking AWS credentials..."
+echo "[CHECK] Checking AWS credentials..."
 if ! aws sts get-caller-identity &>/dev/null; then
-    echo -e "${RED}❌ AWS credentials not configured${NC}"
+    echo -e "${RED}[X] AWS credentials not configured${NC}"
     echo "Run: aws configure"
     exit 1
 fi
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-echo -e "${GREEN}✓${NC} AWS Account: $ACCOUNT_ID"
+echo -e "${GREEN}[OK]${NC} AWS Account: $ACCOUNT_ID"
 echo ""
 
 # 2. Get AWS CLI default region
 CLI_REGION=$(aws configure get region 2>/dev/null || echo "")
 if [ -z "$CLI_REGION" ]; then
-    echo -e "${YELLOW}⚠️  No default region configured in AWS CLI${NC}"
+    echo -e "${YELLOW}[WARNING]  No default region configured in AWS CLI${NC}"
     CLI_REGION="us-east-2"
     echo "Setting default region to us-east-2..."
     aws configure set region us-east-2
 fi
-echo -e "${GREEN}✓${NC} AWS CLI Region: $CLI_REGION"
+echo -e "${GREEN}[OK]${NC} AWS CLI Region: $CLI_REGION"
 echo ""
 
 # 3. Check samconfig.toml region
 SAM_REGION=$(grep 'region = ' backend/infrastructure/samconfig.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
-echo -e "${GREEN}✓${NC} SAM Config Region: $SAM_REGION"
+echo -e "${GREEN}[OK]${NC} SAM Config Region: $SAM_REGION"
 echo ""
 
 # 4. Warn if mismatch
 if [ "$CLI_REGION" != "$SAM_REGION" ]; then
-    echo -e "${YELLOW}⚠️  WARNING: Region mismatch detected!${NC}"
+    echo -e "${YELLOW}[WARNING]  WARNING: Region mismatch detected!${NC}"
     echo "   AWS CLI: $CLI_REGION"
     echo "   SAM Config: $SAM_REGION"
     echo ""
@@ -93,7 +93,7 @@ if [ "$CLI_REGION" != "$SAM_REGION" ]; then
             # Linux
             sed -i "s/region = \".*\"/region = \"$CLI_REGION\"/g" backend/infrastructure/samconfig.toml
         fi
-        echo -e "${GREEN}✓${NC} Updated samconfig.toml to $CLI_REGION (backup saved as samconfig.toml.bak)"
+        echo -e "${GREEN}[OK]${NC} Updated samconfig.toml to $CLI_REGION (backup saved as samconfig.toml.bak)"
         SAM_REGION=$CLI_REGION
     else
         echo "Continuing with region mismatch. Deployment may fail."
@@ -102,10 +102,10 @@ if [ "$CLI_REGION" != "$SAM_REGION" ]; then
 fi
 
 # 5. Check for orphaned resources
-echo "🔍 Checking for orphaned resources..."
+echo "[SCAN] Checking for orphaned resources..."
 ORPHANED_BUCKETS=$(aws s3 ls --region $SAM_REGION 2>/dev/null | grep -i "coding-copilot" || echo "")
 if [ ! -z "$ORPHANED_BUCKETS" ]; then
-    echo -e "${YELLOW}⚠️  Found S3 buckets that may be orphaned:${NC}"
+    echo -e "${YELLOW}[WARNING]  Found S3 buckets that may be orphaned:${NC}"
     echo "$ORPHANED_BUCKETS"
     echo ""
     
@@ -127,42 +127,42 @@ if [ ! -z "$ORPHANED_BUCKETS" ]; then
             aws s3 rm "s3://$bucket" --recursive --region $SAM_REGION 2>/dev/null || true
             echo "Deleting bucket: $bucket"
             aws s3 rb "s3://$bucket" --region $SAM_REGION 2>/dev/null || true
-            echo -e "${GREEN}✓${NC} Processed $bucket"
+            echo -e "${GREEN}[OK]${NC} Processed $bucket"
         done
         echo ""
     fi
 else
-    echo -e "${GREEN}✓${NC} No orphaned buckets found"
+    echo -e "${GREEN}[OK]${NC} No orphaned buckets found"
 fi
 echo ""
 
 # 6. Check Docker
-echo "🐳 Checking Docker..."
+echo "[DOCKER] Checking Docker..."
 if ! docker info &>/dev/null; then
-    echo -e "${RED}❌ Docker is not running${NC}"
+    echo -e "${RED}[X] Docker is not running${NC}"
     echo "Please start Docker Desktop and try again."
     exit 1
 fi
-echo -e "${GREEN}✓${NC} Docker is running"
+echo -e "${GREEN}[OK]${NC} Docker is running"
 echo ""
 
 # 7. Check for SAM CLI
-echo "📦 Checking SAM CLI..."
+echo "[PACKAGE] Checking SAM CLI..."
 if ! command -v sam &>/dev/null; then
-    echo -e "${RED}❌ SAM CLI is not installed${NC}"
+    echo -e "${RED}[X] SAM CLI is not installed${NC}"
     echo "Install from: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html"
     exit 1
 fi
 SAM_VERSION=$(sam --version)
-echo -e "${GREEN}✓${NC} SAM CLI installed: $SAM_VERSION"
+echo -e "${GREEN}[OK]${NC} SAM CLI installed: $SAM_VERSION"
 echo ""
 
 # 8. Check for AWS Bedrock access
-echo "🔑 Checking AWS Bedrock access..."
+echo "[KEY] Checking AWS Bedrock access..."
 BEDROCK_CHECK=$(aws bedrock list-foundation-models --region $SAM_REGION 2>&1 || echo "ERROR")
 
 if echo "$BEDROCK_CHECK" | grep -q "ERROR\|AccessDenied\|not available"; then
-    echo -e "${YELLOW}⚠️  Cannot access AWS Bedrock${NC}"
+    echo -e "${YELLOW}[WARNING]  Cannot access AWS Bedrock${NC}"
     echo ""
     echo "AWS Bedrock may not be enabled in your account or region."
     echo ""
@@ -185,13 +185,13 @@ if echo "$BEDROCK_CHECK" | grep -q "ERROR\|AccessDenied\|not available"; then
         fi
     fi
 else
-    echo -e "${GREEN}✓${NC} AWS Bedrock is accessible"
+    echo -e "${GREEN}[OK]${NC} AWS Bedrock is accessible"
     
     # Check if Claude model is available
     if echo "$BEDROCK_CHECK" | grep -q "anthropic.claude-3-haiku"; then
-        echo -e "${GREEN}✓${NC} Claude 3 Haiku model is available"
+        echo -e "${GREEN}[OK]${NC} Claude 3 Haiku model is available"
     else
-        echo -e "${YELLOW}⚠️  Claude 3 Haiku model may not be enabled${NC}"
+        echo -e "${YELLOW}[WARNING]  Claude 3 Haiku model may not be enabled${NC}"
         echo "Enable it at: https://console.aws.amazon.com/bedrock"
         
         if [ "$SKIP_PROMPTS" = false ]; then
@@ -214,7 +214,7 @@ cd backend/infrastructure
 
 echo "Building Lambda container image..."
 if ! sam build; then
-    echo -e "${RED}❌ Build failed${NC}"
+    echo -e "${RED}[X] Build failed${NC}"
     exit 1
 fi
 echo ""
@@ -249,11 +249,11 @@ FRONTEND_URL=$(aws cloudformation describe-stacks --stack-name prod-coding-copil
 BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name prod-coding-copilot --region $SAM_REGION --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' --output text 2>/dev/null || echo "")
 
 if [ ! -z "$ENDPOINT" ]; then
-    echo "📡 API Endpoint: $ENDPOINT"
+    echo "[API] API Endpoint: $ENDPOINT"
 fi
 
 if [ ! -z "$BUCKET_NAME" ]; then
-    echo "📦 S3 Bucket: $BUCKET_NAME"
+    echo "[PACKAGE] S3 Bucket: $BUCKET_NAME"
     echo ""
     echo "Updating frontend with API endpoint..."
     
@@ -266,12 +266,12 @@ if [ ! -z "$BUCKET_NAME" ]; then
     # Upload frontend to S3
     echo "Uploading frontend files to S3..."
     aws s3 sync frontend/ s3://$BUCKET_NAME/ --delete --region $SAM_REGION
-    echo -e "${GREEN}✓${NC} Frontend uploaded"
+    echo -e "${GREEN}[OK]${NC} Frontend uploaded"
 fi
 
 echo ""
 if [ ! -z "$FRONTEND_URL" ]; then
-    echo -e "${GREEN}🚀 Application URL: $FRONTEND_URL${NC}"
+    echo -e "${GREEN}[LAUNCH] Application URL: $FRONTEND_URL${NC}"
 else
     echo "Application deployed successfully!"
 fi

@@ -19,7 +19,7 @@ REGION=$(grep -E "^region\s*=" backend/infrastructure/samconfig.toml | head -1 |
 
 # Validate extracted region
 if [[ ! "$REGION" =~ ^[a-z]{2}-[a-z]+-[0-9]{1}$ ]]; then
-    echo -e "${YELLOW}⚠️  Could not parse region from samconfig.toml, using default us-east-2${NC}"
+    echo -e "${YELLOW}[WARNING]  Could not parse region from samconfig.toml, using default us-east-2${NC}"
     REGION="us-east-2"
 fi
 STACK_NAME="prod-coding-copilot"
@@ -32,18 +32,18 @@ echo "1. Checking stack status..."
 STACK_STATUS=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NOT_FOUND")
 
 if [ "$STACK_STATUS" = "NOT_FOUND" ]; then
-    echo -e "${RED}❌ Stack not deployed${NC}"
+    echo -e "${RED}[X] Stack not deployed${NC}"
     echo "Run ./deploy-safe.sh first"
     exit 1
 fi
 
 if [[ ! "$STACK_STATUS" =~ ^(CREATE_COMPLETE|UPDATE_COMPLETE)$ ]]; then
-    echo -e "${YELLOW}⚠️  Stack status: $STACK_STATUS${NC}"
+    echo -e "${YELLOW}[WARNING]  Stack status: $STACK_STATUS${NC}"
     echo "Stack may not be fully deployed or is in an error state"
     exit 1
 fi
 
-echo -e "${GREEN}✓${NC} Stack Status: $STACK_STATUS"
+echo -e "${GREEN}[OK]${NC} Stack Status: $STACK_STATUS"
 echo ""
 
 # 2. Get API endpoint
@@ -51,11 +51,11 @@ echo "2. Getting API endpoint..."
 ENDPOINT=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION --query 'Stacks[0].Outputs[?OutputKey==`ChatEndpoint`].OutputValue' --output text 2>/dev/null || echo "")
 
 if [ -z "$ENDPOINT" ]; then
-    echo -e "${RED}❌ API endpoint not found${NC}"
+    echo -e "${RED}[X] API endpoint not found${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✓${NC} API Endpoint: $ENDPOINT"
+echo -e "${GREEN}[OK]${NC} API Endpoint: $ENDPOINT"
 echo ""
 
 # 3. Test API with a real request
@@ -69,20 +69,20 @@ RESPONSE=$(curl -s -X POST $ENDPOINT \
     --max-time 30 || echo "")
 
 if [ -z "$RESPONSE" ]; then
-    echo -e "${RED}❌ No response from API${NC}"
+    echo -e "${RED}[X] No response from API${NC}"
     exit 1
 fi
 
 # Check if response contains expected fields
 if echo "$RESPONSE" | jq -e '.response' &>/dev/null; then
     RESPONSE_TEXT=$(echo "$RESPONSE" | jq -r '.response' | head -c 200)
-    echo -e "${GREEN}✓${NC} API responded successfully"
+    echo -e "${GREEN}[OK]${NC} API responded successfully"
     echo ""
     echo "Response preview:"
     echo "$RESPONSE_TEXT..."
     echo ""
 else
-    echo -e "${RED}❌ Invalid response format${NC}"
+    echo -e "${RED}[X] Invalid response format${NC}"
     echo "Response: $RESPONSE"
     exit 1
 fi
@@ -92,33 +92,33 @@ echo "4. Checking frontend..."
 FRONTEND_URL=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION --query 'Stacks[0].Outputs[?OutputKey==`FrontendURL`].OutputValue' --output text 2>/dev/null || echo "")
 
 if [ -z "$FRONTEND_URL" ]; then
-    echo -e "${YELLOW}⚠️  Frontend URL not found${NC}"
+    echo -e "${YELLOW}[WARNING]  Frontend URL not found${NC}"
 else
-    echo -e "${GREEN}✓${NC} Frontend URL: $FRONTEND_URL"
+    echo -e "${GREEN}[OK]${NC} Frontend URL: $FRONTEND_URL"
     
     # Test if frontend is accessible
     HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" $FRONTEND_URL --max-time 10 || echo "000")
     if [ "$HTTP_CODE" = "200" ]; then
-        echo -e "${GREEN}✓${NC} Frontend is accessible"
+        echo -e "${GREEN}[OK]${NC} Frontend is accessible"
     else
-        echo -e "${YELLOW}⚠️  Frontend returned HTTP $HTTP_CODE${NC}"
+        echo -e "${YELLOW}[WARNING]  Frontend returned HTTP $HTTP_CODE${NC}"
     fi
 fi
 
 echo ""
 echo -e "${GREEN}========================================"
-echo "  ✅ Self-Validation Passed!"
+echo "  [x] Self-Validation Passed!"
 echo "========================================${NC}"
 echo ""
 echo "Summary:"
-echo "  • Stack deployed successfully"
-echo "  • API endpoint is working"
-echo "  • Lambda function responded to test message"
+echo "  - Stack deployed successfully"
+echo "  - API endpoint is working"
+echo "  - Lambda function responded to test message"
 if [ ! -z "$FRONTEND_URL" ]; then
-    echo "  • Frontend is accessible"
+    echo "  - Frontend is accessible"
 fi
 echo ""
-echo "🎉 Your AWS Coding Copilot is fully operational!"
+echo "[SUCCESS] Your AWS Coding Copilot is fully operational!"
 echo ""
 echo "Try it out:"
 echo "  API: $ENDPOINT"
