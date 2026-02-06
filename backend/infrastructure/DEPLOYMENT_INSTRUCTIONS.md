@@ -5,7 +5,7 @@
 - Docker Desktop running (required for Python 3.12 builds)
 - SAM CLI installed
 
-## ⚠️ IMPORTANT: Region Configuration
+## [WARNING] IMPORTANT: Region Configuration
 
 This project is configured for **us-east-2**. Your AWS CLI should match this region to avoid deployment failures.
 
@@ -72,10 +72,10 @@ CloudFormation cannot update a stack when a custom-named resource requires repla
 **What Changed**: The template previously used a custom `FunctionName: ${Environment}-coding-copilot-chat`. This has been removed to allow CloudFormation to auto-generate function names (e.g., `prod-coding-copilot-CodingCopilotFunction-ABC123`).
 
 **Impact**:
-- ✅ CloudFormation can now replace the Lambda function during updates
-- ✅ Future deployments won't hit "cannot replace" errors
-- ✅ All permissions and integrations remain intact
-- ✅ The API Gateway endpoint URL remains the same
+- [x] CloudFormation can now replace the Lambda function during updates
+- [x] Future deployments won't hit "cannot replace" errors
+- [x] All permissions and integrations remain intact
+- [x] The API Gateway endpoint URL remains the same
 
 **If you previously had a custom function name**:
 1. The old `prod-coding-copilot-chat` function will be deleted automatically during the next deployment
